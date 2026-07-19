@@ -19,5 +19,5 @@
   "remoteEnv": {
     "PATH": "/home/app/.npm-global/bin:${containerEnv:PATH}"
   },
-  "postCreateCommand": "mkdir -p ~/.npm-global && npm config set prefix ~/.npm-global && npm install -g @anthropic-ai/claude-code'"
+  "postCreateCommand": "mkdir -p ~/.npm-global && npm config set prefix ~/.npm-global && npm install -g @anthropic-ai/claude-code"
 }

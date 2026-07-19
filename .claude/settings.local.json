@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat ~/.npmrc 2>/dev/null; echo \"---\"; echo $HOME)",
+      "Read(//home/app/**)",
+      "Bash(docker run *)"
+    ]
+  }
+}
