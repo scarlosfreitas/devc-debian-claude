@@ -1,6 +1,6 @@
 services:
   dev:
-    image: ${DOCKER_IMAGE_NAME}:0.1
+    image: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
