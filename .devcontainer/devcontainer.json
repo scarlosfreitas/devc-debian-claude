@@ -1,10 +1,13 @@
 {
-  "name": "devc_debian",
+  "name": "devc-debian",
   "dockerComposeFile": "docker-compose.yml",
   "service": "dev",
   "workspaceFolder": "/workspace",
   "features": {
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+    "ghcr.io/devcontainers/features/node:2.1.0": {
+      "version": "lts"
+    }
   },
   "remoteUser": "app",
   "mounts": [
