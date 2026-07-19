@@ -12,5 +12,9 @@
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/app/.claude"
-  }
+  },
+  "remoteEnv": {
+    "PATH": "/home/app/.npm-global/bin:${containerEnv:PATH}"
+  },
+  "postCreateCommand": "mkdir -p ~/.npm-global && npm config set prefix ~/.npm-global && npm install -g @anthropic-ai/claude-code"
 }
