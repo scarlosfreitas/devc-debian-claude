@@ -1,7 +1,9 @@
 # Como utilizar
+```bash
 git clone https://github.com/scarlosfreitas/devc-debian-claude.git
 mv -- devc-debian-claude/{*,.[!.]*,..?*} .
 rmdir devc-debian-claude
+```
 * troca o nome em devcontainer.json
 * cria .env com o nome da imagem
 * Ctrl+shift+p reopen in container
