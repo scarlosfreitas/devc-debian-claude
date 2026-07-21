@@ -1,5 +1,6 @@
 {
   "name": "Debian + Claude Code",
+  "description": "Ambiente de desenvolvimento padrão deste projeto.",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",

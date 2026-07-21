@@ -1,0 +1,264 @@
+#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+  install.ps1 — bootstrap do devc-debian-claude (Windows/PowerShell).
+
+.DESCRIPTION
+  Baixa o kit deste repositório, remove o .git do template, pergunta os dados
+  do novo projeto (nome, nome do devcontainer, descrição), reescreve os
+  arquivos afetados e inicializa um repositório git novo para o projeto.
+
+.EXAMPLE
+  # Downloader avulso, totalmente interativo:
+  irm https://raw.githubusercontent.com/scarlosfreitas/devc-debian-claude/main/install.ps1 | iex
+
+.EXAMPLE
+  # Não-interativo, via variáveis de ambiente (necessário ao usar "irm | iex",
+  # que não aceita parâmetros de linha de comando):
+  $env:INSTALL_NAME = "Meu Projeto"
+  $env:INSTALL_CONTAINER = "meu-projeto"
+  $env:INSTALL_DESCRIPTION = "Descrição do meu projeto"
+  $env:INSTALL_YES = "1"
+  irm .../install.ps1 | iex
+
+.EXAMPLE
+  # Baixado localmente, com parâmetros normais:
+  .\install.ps1 -Name "Meu Projeto" -ContainerName "meu-projeto" -Description "..." -Yes
+#>
+param(
+  [string]$Name = $env:INSTALL_NAME,
+  [string]$ContainerName = $env:INSTALL_CONTAINER,
+  [string]$Description = $env:INSTALL_DESCRIPTION,
+  [string]$Dir = $(if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "." }),
+  [string]$RepoUrl = $(if ($env:INSTALL_REPO_URL) { $env:INSTALL_REPO_URL } else { "https://github.com/scarlosfreitas/devc-debian-claude.git" }),
+  [string]$Branch = $(if ($env:INSTALL_BRANCH) { $env:INSTALL_BRANCH } else { "main" }),
+  [switch]$Yes = [bool]$env:INSTALL_YES,
+  [switch]$NoPlugins = [bool]$env:INSTALL_NO_PLUGINS,
+  [switch]$NoCommit = [bool]$env:INSTALL_NO_COMMIT
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Write-Step($msg) { Write-Host "==> $msg" }
+function Write-Warn2($msg) { Write-Warning $msg }
+function Fail($msg) { Write-Host "Erro: $msg" -ForegroundColor Red; exit 1 }
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+  Fail "git é obrigatório e não foi encontrado no PATH."
+}
+
+function Read-HostOrDefault([string]$Message, [string]$Default) {
+  # Read-Host lança erro em hosts não interativos (ex.: pipelines de CI); nesse
+  # caso caímos no valor padrão em vez de travar o script.
+  try {
+    $value = Read-Host "$Message [$Default]"
+  } catch {
+    Write-Warn2 "terminal não interativo; usando padrão para `"$Message`": $Default"
+    return $Default
+  }
+  if ([string]::IsNullOrWhiteSpace($value)) { return $Default } else { return $value }
+}
+
+function Prompt-Default([string]$Current, [string]$Message, [string]$Default) {
+  if (-not [string]::IsNullOrWhiteSpace($Current)) { return $Current }
+  if ($Yes) { return $Default }
+  return Read-HostOrDefault -Message $Message -Default $Default
+}
+
+function Slugify([string]$Text) {
+  $normalized = $Text.ToLowerInvariant().Normalize([System.Text.NormalizationForm]::FormD)
+  $sb = New-Object System.Text.StringBuilder
+  foreach ($ch in $normalized.ToCharArray()) {
+    $cat = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($ch)
+    if ($cat -ne [System.Globalization.UnicodeCategory]::NonSpacingMark) { [void]$sb.Append($ch) }
+  }
+  $slug = [System.Text.RegularExpressions.Regex]::Replace($sb.ToString(), '[^a-z0-9]+', '-')
+  return $slug.Trim('-')
+}
+
+# --- diretório de destino -------------------------------------------------
+
+New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+$Dir = (Resolve-Path $Dir).Path
+
+$existing = Get-ChildItem -Force -Path $Dir -ErrorAction SilentlyContinue
+if ($existing) {
+  if ($Yes) {
+    Write-Warn2 "diretório '$Dir' não está vazio; prosseguindo (-Yes)."
+  } else {
+    $reply = $null
+    try { $reply = Read-Host "Diretório '$Dir' não está vazio. Continuar mesmo assim? [y/N]" }
+    catch { Fail "diretório '$Dir' não está vazio. Rode novamente com -Yes para prosseguir." }
+    # Cast explícito para string: "$null -notmatch ..." não retorna $false como se
+    # esperaria (é um caso especial do operador -match/-notmatch em PowerShell) e
+    # deixaria essa checagem de segurança passar aberta em modo não interativo.
+    if ([string]$reply -notmatch '^[Yy]') { Fail "cancelado pelo usuário." }
+  }
+}
+
+# --- baixa o kit e remove o .git do template ------------------------------
+
+$TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("devc-debian-claude-" + [System.Guid]::NewGuid().ToString("N"))
+
+try {
+  Write-Step "baixando o kit ($RepoUrl, branch $Branch)..."
+  git clone --quiet --depth 1 --branch $Branch $RepoUrl $TmpDir
+  if ($LASTEXITCODE -ne 0) { Fail "falha ao clonar $RepoUrl (branch $Branch)." }
+  Remove-Item -Recurse -Force (Join-Path $TmpDir ".git")
+
+  Write-Step "copiando arquivos para '$Dir'..."
+  Get-ChildItem -Force -Path $TmpDir | ForEach-Object {
+    Copy-Item -Path $_.FullName -Destination $Dir -Recurse -Force
+  }
+} finally {
+  Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $TmpDir
+}
+
+Set-Location $Dir
+
+# --- coleta de dados do novo projeto --------------------------------------
+
+$DefaultName = Split-Path -Leaf $Dir
+$Name = Prompt-Default -Current $Name -Message "Nome do projeto" -Default $DefaultName
+
+$DefaultContainer = Slugify $Name
+$ContainerName = Prompt-Default -Current $ContainerName -Message "Nome do devcontainer/container" -Default $DefaultContainer
+
+$Description = Prompt-Default -Current $Description -Message "Descrição do projeto" -Default "Ambiente de desenvolvimento padrão deste projeto."
+
+$ContainerSlug = Slugify $ContainerName
+if ([string]::IsNullOrWhiteSpace($ContainerSlug)) { $ContainerSlug = $DefaultContainer }
+
+# --- reescreve devcontainer.json (JSON de verdade, não regex) -------------
+
+Write-Step "atualizando .devcontainer/devcontainer.json..."
+$dcPath = Join-Path $Dir ".devcontainer/devcontainer.json"
+$dc = Get-Content -Raw -Path $dcPath | ConvertFrom-Json
+$dc.name = $Name
+if ($dc.PSObject.Properties.Name -contains 'description') {
+  $dc.description = $Description
+} else {
+  $dc | Add-Member -NotePropertyName description -NotePropertyValue $Description
+}
+# Nota: o round-trip ConvertFrom-Json/ConvertTo-Json pode reordenar chaves;
+# o JSON resultante continua válido, só muda a formatação cosmética.
+($dc | ConvertTo-Json -Depth 10) | Set-Content -Path $dcPath -Encoding utf8
+
+# --- gera o .env a partir do .env.example ----------------------------------
+
+Write-Step "gerando .devcontainer/.env..."
+$envExamplePath = Join-Path $Dir ".devcontainer/.env.example"
+$envPath = Join-Path $Dir ".devcontainer/.env"
+$envLines = Get-Content -Path $envExamplePath | ForEach-Object {
+  if ($_ -match '^DOCKER_IMAGE_NAME=') { "DOCKER_IMAGE_NAME=$ContainerSlug" }
+  elseif ($_ -match '^DOCKER_IMAGE_TAG=') { "DOCKER_IMAGE_TAG=0.1" }
+  elseif ($_ -match '^CONTAINER_NAME=') { "CONTAINER_NAME=$ContainerSlug" }
+  else { $_ }
+}
+($envLines -join "`n") + "`n" | Set-Content -Path $envPath -Encoding utf8 -NoNewline
+
+# --- README.md do novo projeto ---------------------------------------------
+
+Write-Step "gerando README.md do projeto..."
+$readmePath = Join-Path $Dir "README.md"
+@"
+# $Name
+
+$Description
+
+## Ambiente de desenvolvimento
+
+Este projeto usa um devcontainer Debian com Claude Code pré-instalado.
+
+1. Abra a pasta no VS Code.
+2. ``Ctrl+Shift+P`` -> **Dev Containers: Reopen in Container**.
+3. Faça login no Claude Code (no chat e no terminal).
+
+Gerado a partir do template [devc-debian-claude](https://github.com/scarlosfreitas/devc-debian-claude).
+"@ | Set-Content -Path $readmePath -Encoding utf8
+
+# --- remove artefatos que só fazem sentido no template ----------------------
+
+Write-Step "removendo artefatos do template..."
+Remove-Item -Force -ErrorAction SilentlyContinue -Path (Join-Path $Dir "PRD.md"), (Join-Path $Dir "install.sh"), (Join-Path $Dir "install.ps1")
+
+# --- menu opcional de plugins ------------------------------------------------
+
+$pluginLines = New-Object System.Collections.Generic.List[string]
+if (-not $NoPlugins) {
+  if ($Yes) {
+    Write-Step "menu de plugins pulado (-Yes); veja scripts/plugins.sh para instalar manualmente depois."
+  } else {
+    $selection = $null
+    try {
+      Write-Host ""
+      Write-Host "Plugins opcionais (instalados na próxima criação do container, via postCreate.sh):"
+      Write-Host "  [1] agent-browser   - automação de navegador"
+      Write-Host "  [2] Context7        - plugin MCP de documentação"
+      Write-Host "  [3] context-mode    - plugin MCP de contexto"
+      $selection = Read-Host "Informe os números desejados separados por espaço (Enter para nenhum)"
+    } catch {
+      Write-Warn2 "terminal não interativo; menu de plugins pulado. Veja scripts/plugins.sh."
+    }
+    if ($selection) {
+      foreach ($opt in ($selection -split '\s+' | Where-Object { $_ })) {
+        switch ($opt) {
+          '1' {
+            $pluginLines.Add('sudo npm install -g --allow-scripts=agent-browser agent-browser')
+            $pluginLines.Add('agent-browser install --with-deps')
+            $pluginLines.Add('npx skills add vercel-labs/agent-browser')
+          }
+          '2' { $pluginLines.Add('claude plugin install context7@claude-plugins-official --scope user') }
+          '3' {
+            $pluginLines.Add('claude plugin marketplace add mksglu/context-mode')
+            $pluginLines.Add('claude plugin install context-mode@context-mode --scope user')
+          }
+          default { Write-Warn2 "opção ignorada: $opt" }
+        }
+      }
+    }
+  }
+}
+
+if ($pluginLines.Count -gt 0) {
+  Write-Step "gravando plugins escolhidos em .devcontainer/postCreate.sh..."
+  $postCreatePath = Join-Path $Dir ".devcontainer/postCreate.sh"
+  $startMarker = '# >>> devc-debian-claude: plugins selecionados (gerado por install.sh/install.ps1) >>>'
+  $endMarker = '# <<< devc-debian-claude: plugins selecionados <<<'
+  $original = Get-Content -Path $postCreatePath
+  $result = New-Object System.Collections.Generic.List[string]
+  $skip = $false
+  foreach ($line in $original) {
+    if ($line -eq $startMarker) {
+      $result.Add($line)
+      $result.Add('# Instalação selecionada durante o bootstrap:')
+      foreach ($pl in $pluginLines) { $result.Add($pl) }
+      $skip = $true
+      continue
+    }
+    if ($line -eq $endMarker) { $skip = $false }
+    if (-not $skip) { $result.Add($line) }
+  }
+  # Força quebras de linha LF (o script roda em bash dentro do container Linux).
+  (($result -join "`n") + "`n") | Set-Content -Path $postCreatePath -Encoding utf8 -NoNewline
+}
+
+# --- git init ------------------------------------------------------------------
+
+Write-Step "inicializando repositório git..."
+git init --quiet
+if ($LASTEXITCODE -ne 0) { Fail "git init falhou." }
+if (-not $NoCommit) {
+  git add -A
+  git commit --quiet -m "chore: bootstrap a partir do template devc-debian-claude"
+}
+
+# --- resumo ----------------------------------------------------------------------
+
+Write-Host ""
+Write-Step "projeto '$Name' criado em '$Dir'."
+Write-Host "Próximos passos:"
+Write-Host "  1. Abra a pasta no VS Code."
+Write-Host "  2. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
+Write-Host "  3. Faça login no Claude Code (chat e terminal)."
