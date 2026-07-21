@@ -1,7 +1,7 @@
 {
   "name": "Debian + Claude Code",
   "dockerComposeFile": "docker-compose.yml",
-  "service": "dev",
+  "service": "app",
   "workspaceFolder": "/workspace",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
