@@ -12,3 +12,10 @@ claude plugin install context7@claude-plugins-official --scope user
 # context-mode
 claude plugin marketplace add mksglu/context-mode
 claude plugin install context-mode@context-mode --scope user
+
+# Playwright CLI (browsers + testes; sem MCP)
+npm install -g playwright
+playwright install --with-deps
+
+# Playwright (MCP de automação de navegador)
+claude mcp add playwright npx '@playwright/mcp@latest'
