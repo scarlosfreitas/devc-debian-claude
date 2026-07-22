@@ -4,7 +4,8 @@
 
 O objetivo é sair do zero para um ambiente de desenvolvimento padronizado em **um único comando**, sem repetir a montagem manual da base a cada projeto novo.
 
-> 📄 O que este kit é e para onde ele evolui está descrito em [`PRD.md`](PRD.md).
+> 📄 O que este kit é e para onde ele evolui está descrito em [`.claude/PRD.md`](.claude/PRD.md). A
+> metodologia e a arquitetura de pastas de referência estão em [`docs/guidelines/prd-good-pratices.md`](docs/guidelines/prd-good-pratices.md).
 
 ---
 
@@ -27,7 +28,7 @@ O instalador vai perguntar:
 - **Nome do devcontainer/container**
 - **Descrição do projeto**
 
-E então: baixa o kit → apaga o `.git` do template → reescreve `.devcontainer/devcontainer.json` e gera o `.env` a partir do `.env.example` → **sobrescreve este `README.md`** por um README novo e mínimo do seu projeto → roda `git init` → oferece (opcional) instalar plugins (gravados em `.devcontainer/postCreate.sh`, instalados na próxima criação do container) → remove da raiz o que só faz sentido no template (`PRD.md` e os próprios `install.*`).
+E então: baixa o kit → apaga o `.git` do template → reescreve `.devcontainer/devcontainer.json` e gera o `.env` a partir do `.env.example` → **sobrescreve este `README.md`** por um README novo e mínimo do seu projeto → **regenera `.claude/PRD.md`** como esqueleto limpo do seu projeto → roda `git init` → oferece (opcional) instalar plugins (gravados em `.devcontainer/postCreate.sh`, instalados na próxima criação do container) → remove da raiz o que só faz sentido no template (os próprios `install.*`).
 
 ### Modo não-interativo (CI/automação)
 
@@ -77,14 +78,19 @@ Depois de rodar:
 │   ├── agents/               # plan-dev, plan-ops, run-dev, run-ops, test-ops
 │   ├── plans/                # planos registrados pelos agentes (convenção de nomes)
 │   ├── skills/               # ponto de extensão para skills do Claude Code
-│   ├── PRD.md                # esqueleto do PRD do SEU projeto (preencha)
+│   ├── PRD.md                # documento de produto (o quê/porquê) — fonte de verdade
 │   └── settings.json         # hooks (bell ao terminar/notificar)
+├── docs/
+│   ├── domain/               # regras de negócio (fonte única da verdade do domínio)
+│   ├── standards/            # padrões de arquitetura (architecture.md) e estilo (style.md)
+│   └── guidelines/           # diretrizes da IA + prd-good-pratices.md (referência p/ o PRD)
+├── src/                      # código de produção
+├── test/                     # testes (TDD) que validam src/
 ├── scripts/
 │   ├── clean.sh              # remove containers/volumes deste devcontainer
 │   └── plugins.sh            # catálogo de plugins/MCP para instalar sob demanda
 ├── install.sh / install.ps1  # bootstrap (removidos no projeto gerado)
-├── CLAUDE.md                 # orientações do kit para o Claude Code
-├── PRD.md                    # documento de produto DESTE template
+├── STATUS.md                 # ponto de partida: estado atual e próxima prioridade
 └── README.md                 # este arquivo
 ```
 
