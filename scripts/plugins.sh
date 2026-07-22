@@ -2,9 +2,9 @@
 # o usuario deverá decidir quais serão necessários, e instalar manualmente, para não poluir o container com plugins desnecessários.
 
 # Agent browser
-sudo npm install -g --allow-scripts=agent-browser agent-browser
-agent-browser install --with-deps
-npx skills add vercel-labs/agent-browser
+# sudo npm install -g --allow-scripts=agent-browser agent-browser
+# agent-browser install --with-deps
+# npx skills add vercel-labs/agent-browser
 
 # Context7
 claude plugin install context7@claude-plugins-official --scope user
@@ -14,8 +14,11 @@ claude plugin marketplace add mksglu/context-mode
 claude plugin install context-mode@context-mode --scope user
 
 # Playwright CLI (browsers + testes; sem MCP)
-npm install -g playwright
+npm install -g @playwright/cli@latest
 playwright install --with-deps
 
-# Playwright (MCP de automação de navegador)
-claude mcp add playwright npx '@playwright/mcp@latest'
+# Interface Design Skill 
+npx skills add https://github.com/dammyjay93/interface-design --skill interface-design
+
+# Napkin
+git clone https://github.com/blader/napkin.git ~/.claude/skills/napkin
