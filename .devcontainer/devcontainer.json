@@ -9,7 +9,7 @@
   },
   "remoteUser": "app",
   "mounts": [
-    "source=claude-code-config-${devcontainerId},target=/home/app/.claude,type=volume"
+    "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind"
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/app/.claude",

@@ -56,7 +56,7 @@ Depois de rodar:
 ## 📦 O que você recebe
 
 - **Devcontainer Debian** (`debian:bookworm-slim`) com **Node.js LTS**, **git**, **Google Chrome** (para automação de navegador) e usuário não-root `app`.
-- **Claude Code pré-instalado** via a feature oficial `ghcr.io/anthropics/devcontainer-features/claude-code`, com config persistida entre rebuilds em um volume nomeado.
+- **Claude Code pré-instalado** via a feature oficial `ghcr.io/anthropics/devcontainer-features/claude-code`, com a pasta `~/.claude` do host montada por bind mount em `/home/app/.claude` (config, plugins, credenciais e memória compartilhados com o host).
 - **Locale UTF-8** configurado (`LANG`/`LC_ALL=C.UTF-8`) para evitar problemas com acentuação (`ç`, `'`).
 - **5 subagentes** formando o ciclo `plan → run → test` (ver abaixo).
 - **Scripts utilitários** de limpeza e um catálogo de plugins.
@@ -70,7 +70,7 @@ Depois de rodar:
 ├── .devcontainer/
 │   ├── Dockerfile            # imagem de desenvolvimento (Debian + Node + Chrome)
 │   ├── docker-compose.yml    # service "app", parametrizado por .env
-│   ├── devcontainer.json     # feature claude-code, volume de config, locale UTF-8
+│   ├── devcontainer.json     # feature claude-code, bind mount de ~/.claude do host, locale UTF-8
 │   ├── postCreate.sh         # setup pós-criação do container
 │   └── .env.example          # DOCKER_IMAGE_NAME / DOCKER_IMAGE_TAG / CONTAINER_NAME
 ├── .claude/

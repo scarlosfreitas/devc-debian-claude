@@ -62,8 +62,9 @@ O que já existe no repositório:
   (`DOCKER_IMAGE_NAME`, `DOCKER_IMAGE_TAG`, `CONTAINER_NAME`); `TZ=America/Sao_Paulo`;
   volume `..:/workspace:cached`; `command: sleep infinity`.
 - **`devcontainer.json`** — `name` e `description` (reescritos pelo instalador), usa o compose,
-  feature oficial `ghcr.io/anthropics/devcontainer-features/claude-code:1.0`, volume nomeado
-  persistente em `/home/app/.claude`, `CLAUDE_CONFIG_DIR` e locale UTF-8 (`LANG`/`LC_ALL=C.UTF-8`),
+  feature oficial `ghcr.io/anthropics/devcontainer-features/claude-code:1.0`, bind mount de
+  `${localEnv:HOME}/.claude` do host em `/home/app/.claude` (compartilha config, plugins,
+  credenciais e memória com o host), `CLAUDE_CONFIG_DIR` e locale UTF-8 (`LANG`/`LC_ALL=C.UTF-8`),
   `postCreateCommand: bash .devcontainer/postCreate.sh`.
 - **`postCreate.sh`** — roda no pós-criação do container; contém um bloco marcado
   (`# >>> devc-debian-claude: plugins selecionados ... <<<`) onde o instalador insere os comandos
