@@ -23,7 +23,6 @@ PROJECT_NAME=""
 CONTAINER_NAME=""
 DESCRIPTION=""
 ASSUME_YES=false
-DO_PLUGINS=true
 DO_COMMIT=true
 
 usage() {
@@ -39,7 +38,6 @@ Opções:
   --branch <nome>         Branch do template a baixar (padrão: main)
   -y, --force, --yes      Não pede confirmação/prompts; usa padrões ou flags;
                            permite rodar em diretório não vazio
-  --no-plugins            Pula o menu opcional de plugins
   --no-commit             Não cria o commit inicial (só roda git init)
   -h, --help              Mostra esta ajuda
 
@@ -58,7 +56,6 @@ while [[ $# -gt 0 ]]; do
     --repo-url) REPO_URL="$2"; shift 2 ;;
     --branch) BRANCH="$2"; shift 2 ;;
     -y|--force|--yes) ASSUME_YES=true; shift ;;
-    --no-plugins) DO_PLUGINS=false; shift ;;
     --no-commit) DO_COMMIT=false; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Opção desconhecida: $1" >&2; usage >&2; exit 1 ;;
@@ -249,45 +246,6 @@ EOF
 
 log "removendo artefatos do template..."
 rm -f install.sh install.ps1
-
-# --- menu opcional de plugins ---------------------------------------------
-
-PLUGIN_BLOCK=""
-if [[ "$DO_PLUGINS" == true ]]; then
-  if [[ "$ASSUME_YES" == true && -z "${FORCE_PLUGIN_SELECTION:-}" ]]; then
-    log "menu de plugins pulado (--yes); veja scripts/plugins.sh para instalar manualmente depois."
-  elif ! tty_available; then
-    warn "terminal não interativo; menu de plugins pulado. Veja scripts/plugins.sh."
-  else
-    echo
-    echo "Plugins opcionais (instalados na próxima criação do container, via postCreate.sh):"
-    echo "  [1] agent-browser   — automação de navegador"
-    echo "  [2] Context7        — plugin MCP de documentação"
-    echo "  [3] context-mode    — plugin MCP de contexto"
-    echo "Informe os números desejados separados por espaço (Enter para nenhum):"
-    read -r -p "> " selection < /dev/tty || true
-    for opt in $selection; do
-      case "$opt" in
-        1) PLUGIN_BLOCK+=$'\nsudo npm install -g --allow-scripts=agent-browser agent-browser\nagent-browser install --with-deps\nnpx skills add vercel-labs/agent-browser' ;;
-        2) PLUGIN_BLOCK+=$'\nclaude plugin install context7@claude-plugins-official --scope user' ;;
-        3) PLUGIN_BLOCK+=$'\nclaude plugin marketplace add mksglu/context-mode\nclaude plugin install context-mode@context-mode --scope user' ;;
-        *) warn "opção ignorada: $opt" ;;
-      esac
-    done
-  fi
-fi
-
-if [[ -n "$PLUGIN_BLOCK" ]]; then
-  log "gravando plugins escolhidos em .devcontainer/postCreate.sh..."
-  BLOCK_CONTENT="# Instalação selecionada durante o bootstrap:$PLUGIN_BLOCK"
-  awk -v block="$BLOCK_CONTENT" '
-    /^# >>> devc-debian-claude: plugins selecionados/ { print; print block; skip=1; next }
-    /^# <<< devc-debian-claude: plugins selecionados/ { skip=0 }
-    !skip { print }
-  ' .devcontainer/postCreate.sh > .devcontainer/postCreate.sh.new
-  mv .devcontainer/postCreate.sh.new .devcontainer/postCreate.sh
-  chmod +x .devcontainer/postCreate.sh
-fi
 
 # --- git init --------------------------------------------------------------
 

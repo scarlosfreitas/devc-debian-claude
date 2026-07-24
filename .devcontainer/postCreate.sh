@@ -6,19 +6,10 @@ set -euo pipefail
 # para instalações/configurações que devem acontecer sempre que o container
 # for (re)criado.
 #
-# O bloco entre os marcadores abaixo é preenchido automaticamente pelo
-# install.sh/install.ps1 com os plugins que você escolher instalar durante o
-# bootstrap do projeto (ver scripts/plugins.sh para o catálogo completo).
-# Não remova os marcadores — eles são o ponto de inserção do instalador.
+# Plugins/MCPs não são instalados automaticamente — veja scripts/plugins.sh
+# para o catálogo e instale manualmente o que precisar.
 
 echo "postCreate: iniciando setup do container..."
-
-# >>> devc-debian-claude: plugins selecionados (gerado por install.sh/install.ps1) >>>
-# Instalação selecionada durante o bootstrap:
-# claude plugin install context7@claude-plugins-official --scope user
-# claude plugin marketplace add mksglu/context-mode
-# claude plugin install context-mode@context-mode --scope user
-# <<< devc-debian-claude: plugins selecionados <<<
 
 # --- Credenciais git via token (regenerado a cada recriação do container) ----
 # /workspace (com .env e .git/config) é bind mount do host e sobrevive a

@@ -33,7 +33,6 @@ param(
   [string]$RepoUrl = $(if ($env:INSTALL_REPO_URL) { $env:INSTALL_REPO_URL } else { "https://github.com/scarlosfreitas/devc-debian-claude.git" }),
   [string]$Branch = $(if ($env:INSTALL_BRANCH) { $env:INSTALL_BRANCH } else { "main" }),
   [switch]$Yes = [bool]$env:INSTALL_YES,
-  [switch]$NoPlugins = [bool]$env:INSTALL_NO_PLUGINS,
   [switch]$NoCommit = [bool]$env:INSTALL_NO_COMMIT
 )
 
@@ -233,67 +232,6 @@ Set-Content -Path $prdPath -Value $prdBody -Encoding utf8
 
 Write-Step "removendo artefatos do template..."
 Remove-Item -Force -ErrorAction SilentlyContinue -Path (Join-Path $Dir "install.sh"), (Join-Path $Dir "install.ps1")
-
-# --- menu opcional de plugins ------------------------------------------------
-
-$pluginLines = New-Object System.Collections.Generic.List[string]
-if (-not $NoPlugins) {
-  if ($Yes) {
-    Write-Step "menu de plugins pulado (-Yes); veja scripts/plugins.sh para instalar manualmente depois."
-  } else {
-    $selection = $null
-    try {
-      Write-Host ""
-      Write-Host "Plugins opcionais (instalados na próxima criação do container, via postCreate.sh):"
-      Write-Host "  [1] agent-browser   - automação de navegador"
-      Write-Host "  [2] Context7        - plugin MCP de documentação"
-      Write-Host "  [3] context-mode    - plugin MCP de contexto"
-      $selection = Read-Host "Informe os números desejados separados por espaço (Enter para nenhum)"
-    } catch {
-      Write-Warn2 "terminal não interativo; menu de plugins pulado. Veja scripts/plugins.sh."
-    }
-    if ($selection) {
-      foreach ($opt in ($selection -split '\s+' | Where-Object { $_ })) {
-        switch ($opt) {
-          '1' {
-            $pluginLines.Add('sudo npm install -g --allow-scripts=agent-browser agent-browser')
-            $pluginLines.Add('agent-browser install --with-deps')
-            $pluginLines.Add('npx skills add vercel-labs/agent-browser')
-          }
-          '2' { $pluginLines.Add('claude plugin install context7@claude-plugins-official --scope user') }
-          '3' {
-            $pluginLines.Add('claude plugin marketplace add mksglu/context-mode')
-            $pluginLines.Add('claude plugin install context-mode@context-mode --scope user')
-          }
-          default { Write-Warn2 "opção ignorada: $opt" }
-        }
-      }
-    }
-  }
-}
-
-if ($pluginLines.Count -gt 0) {
-  Write-Step "gravando plugins escolhidos em .devcontainer/postCreate.sh..."
-  $postCreatePath = Join-Path $Dir ".devcontainer/postCreate.sh"
-  $startMarker = '# >>> devc-debian-claude: plugins selecionados (gerado por install.sh/install.ps1) >>>'
-  $endMarker = '# <<< devc-debian-claude: plugins selecionados <<<'
-  $original = Get-Content -Path $postCreatePath
-  $result = New-Object System.Collections.Generic.List[string]
-  $skip = $false
-  foreach ($line in $original) {
-    if ($line -eq $startMarker) {
-      $result.Add($line)
-      $result.Add('# Instalação selecionada durante o bootstrap:')
-      foreach ($pl in $pluginLines) { $result.Add($pl) }
-      $skip = $true
-      continue
-    }
-    if ($line -eq $endMarker) { $skip = $false }
-    if (-not $skip) { $result.Add($line) }
-  }
-  # Força quebras de linha LF (o script roda em bash dentro do container Linux).
-  (($result -join "`n") + "`n") | Set-Content -Path $postCreatePath -Encoding utf8 -NoNewline
-}
 
 # --- git init ------------------------------------------------------------------
 

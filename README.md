@@ -28,7 +28,7 @@ O instalador vai perguntar:
 - **Nome do devcontainer/container**
 - **Descrição do projeto**
 
-E então: baixa o kit → apaga o `.git` do template → reescreve `.devcontainer/devcontainer.json` e gera o `.env` a partir do `.env.example` → **sobrescreve este `README.md`** por um README novo e mínimo do seu projeto → **regenera `.claude/PRD.md`** como esqueleto limpo do seu projeto → roda `git init` → oferece (opcional) instalar plugins (gravados em `.devcontainer/postCreate.sh`, instalados na próxima criação do container) → remove da raiz o que só faz sentido no template (os próprios `install.*`).
+E então: baixa o kit → apaga o `.git` do template → reescreve `.devcontainer/devcontainer.json` e gera o `.env` a partir do `.env.example` → **sobrescreve este `README.md`** por um README novo e mínimo do seu projeto → **regenera `.claude/PRD.md`** como esqueleto limpo do seu projeto → roda `git init` → remove da raiz o que só faz sentido no template (os próprios `install.*`).
 
 ### Modo não-interativo (CI/automação)
 
@@ -114,7 +114,7 @@ Os planos ficam registrados em [`.claude/plans/`](.claude/plans/) seguindo a con
 
 ## 🧩 Plugins (opcional)
 
-Para manter o container enxuto, **nada é instalado automaticamente**. O arquivo [`scripts/plugins.sh`](scripts/plugins.sh) é um catálogo do que você pode instalar sob demanda (agent-browser, Context7, context-mode). O instalador também oferece um menu opcional desses plugins durante o bootstrap.
+Para manter o container enxuto, **nada é instalado automaticamente**. O arquivo [`scripts/plugins.sh`](scripts/plugins.sh) é um catálogo do que você pode instalar sob demanda (agent-browser, Context7, context-mode).
 
 ---
 
