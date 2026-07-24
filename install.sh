@@ -181,25 +181,6 @@ sed -i.bak \
   .devcontainer/.env
 rm -f .devcontainer/.env.bak
 
-# --- README.md do novo projeto -------------------------------------------
-
-log "gerando README.md do projeto..."
-cat > README.md <<EOF
-# $PROJECT_NAME
-
-$DESCRIPTION
-
-## Ambiente de desenvolvimento
-
-Este projeto usa um devcontainer Debian com Claude Code pré-instalado.
-
-1. Abra a pasta no VS Code.
-2. \`Ctrl+Shift+P\` → **Dev Containers: Reopen in Container**.
-3. Faça login no Claude Code (no chat e no terminal).
-
-Gerado a partir do template [devc-debian-claude](https://github.com/scarlosfreitas/devc-debian-claude).
-EOF
-
 # --- esqueleto de PRD do projeto-alvo -------------------------------------
 
 log "gerando .claude/PRD.md (esqueleto do projeto)..."

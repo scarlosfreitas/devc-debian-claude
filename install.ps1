@@ -164,26 +164,6 @@ $envLines = Get-Content -Path $envExamplePath | ForEach-Object {
 }
 ($envLines -join "`n") + "`n" | Set-Content -Path $envPath -Encoding utf8 -NoNewline
 
-# --- README.md do novo projeto ---------------------------------------------
-
-Write-Step "gerando README.md do projeto..."
-$readmePath = Join-Path $Dir "README.md"
-@"
-# $Name
-
-$Description
-
-## Ambiente de desenvolvimento
-
-Este projeto usa um devcontainer Debian com Claude Code pré-instalado.
-
-1. Abra a pasta no VS Code.
-2. ``Ctrl+Shift+P`` -> **Dev Containers: Reopen in Container**.
-3. Faça login no Claude Code (no chat e no terminal).
-
-Gerado a partir do template [devc-debian-claude](https://github.com/scarlosfreitas/devc-debian-claude).
-"@ | Set-Content -Path $readmePath -Encoding utf8
-
 # --- esqueleto de PRD do projeto-alvo ---------------------------------------
 
 Write-Step "gerando .claude/PRD.md (esqueleto do projeto)..."
