@@ -3,10 +3,11 @@ set -euo pipefail
 
 # Remove containers e volumes do devcontainer deste projeto.
 #
-# O container tem nome fixo (CONTAINER_NAME em .env, usado como container_name
-# no docker-compose.yml), então buscamos por esse nome exato. Sem .env (ex.:
-# projetos antigos deste template), caímos no padrão "<pasta>_devcontainer..."
-# que a extensão Dev Containers do VS Code gerava por conta própria.
+# O container tem nome fixo (CONTAINER_NAME em .devcontainer/.env, usado como
+# container_name no docker-compose.yml), então buscamos por esse nome exato.
+# Sem .devcontainer/.env (ex.: projetos antigos deste template), caímos no
+# padrão "<pasta>_devcontainer..." que a extensão Dev Containers do VS Code
+# gerava por conta própria.
 #
 # Volumes como claude-code-config-<devcontainerId> são criados pela extensão
 # Dev Containers via "mounts" do devcontainer.json, fora do compose, e não
@@ -21,8 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 CONTAINER_NAME=""
-if [[ -f "$SCRIPT_DIR/.env" ]]; then
-  CONTAINER_NAME="$(grep -E '^CONTAINER_NAME=' "$SCRIPT_DIR/.env" | tail -1 | cut -d= -f2-)"
+if [[ -f "$PROJECT_DIR/.devcontainer/.env" ]]; then
+  CONTAINER_NAME="$(grep -E '^CONTAINER_NAME=' "$PROJECT_DIR/.devcontainer/.env" | tail -1 | cut -d= -f2-)"
 fi
 
 FORCE=false

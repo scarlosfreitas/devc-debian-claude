@@ -1,4 +1,5 @@
 # Segredos / config local
+.env
 .devcontainer/.env
 
 # Python

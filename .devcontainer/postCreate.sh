@@ -14,8 +14,34 @@ set -euo pipefail
 echo "postCreate: iniciando setup do container..."
 
 # >>> devc-debian-claude: plugins selecionados (gerado por install.sh/install.ps1) >>>
-# Nenhum plugin foi selecionado durante a instalação.
-# Para instalar manualmente mais tarde, veja o catálogo em scripts/plugins.sh.
+# Instalação selecionada durante o bootstrap:
+# claude plugin install context7@claude-plugins-official --scope user
+# claude plugin marketplace add mksglu/context-mode
+# claude plugin install context-mode@context-mode --scope user
 # <<< devc-debian-claude: plugins selecionados <<<
+
+# --- Credenciais git via token (regenerado a cada recriação do container) ----
+# /workspace (com .env e .git/config) é bind mount do host e sobrevive a
+# rebuilds; /home/app é filesystem do container e é descartado a cada rebuild.
+# credential.helper=store já está configurado em /workspace/.git/config (persiste),
+# mas o arquivo ~/.git-credentials com o token em si precisa ser recriado aqui.
+if [ -f /workspace/.env ]; then
+    set -a
+    # shellcheck disable=SC1091
+    source /workspace/.env
+    set +a
+    if [ -n "${GIT_USERNAME:-}" ] && [ -n "${GIT_TOKKEN:-}" ]; then
+        echo "postCreate: configurando credenciais git via token..."
+        # url-encode mínimo (usuário costuma ser um e-mail, com '@'/':'/'%')
+        enc_user="${GIT_USERNAME//%/%25}"
+        enc_user="${enc_user//@/%40}"
+        enc_user="${enc_user//:/%3A}"
+        enc_token="${GIT_TOKKEN//%/%25}"
+        printf 'https://%s:%s@github.com\n' "$enc_user" "$enc_token" > ~/.git-credentials
+        chmod 600 ~/.git-credentials
+    else
+        echo "postCreate: GIT_USERNAME/GIT_TOKKEN não definidos em .env, pulando credenciais git."
+    fi
+fi
 
 echo "postCreate: concluído."

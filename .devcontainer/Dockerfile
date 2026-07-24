@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         gnupg \
         sudo \
+        zip \
+        unzip \
         xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,6 +28,9 @@ RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
     && apt-get update \
     && apt-get install -y --no-install-recommends google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
+
+# --- uv (gerenciador de dependências/ambiente Python do projeto) --------------
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 # --- Usuário não-root (UID/GID 1000, casa com o fallback do docker-compose) ---
 RUN groupadd --gid 1000 app \

@@ -1,20 +1,40 @@
 {
   //Ambiente de desenvolvimento com Debian e Claude Code
-  "name": "Debian + Claude Code",
+  "name": "DevC Claude Code",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",
+  "shutdownAction": "none",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
   "remoteUser": "app",
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind"
+    "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind", // config do claude
+    "source=${localEnv:HOME}/.claude/projects/devc-debian-claude,target=/home/app/.claude/projects/-workspace,type=bind,consistency=cached"
   ],
   "containerEnv": {
     "CLAUDE_CONFIG_DIR": "/home/app/.claude",
     "LANG": "C.UTF-8",
-    "LC_ALL": "C.UTF-8"
+    "LC_ALL": "C.UTF-8",
+    // Força o uso do helper "store" (credenciais lidas de ~/.git-credentials,
+    // gerado pelo postCreate.sh a partir do GIT_TOKKEN do .env). Sem isso o
+    // Dev Containers injeta seu próprio credential.helper (proxy para o host)
+    // em /etc/gitconfig e ~/.gitconfig, que quebra o push/commit no container
+    // pois não há UI para completar aquele fluxo de autenticação.
+    "GIT_CONFIG_COUNT": "1",
+    "GIT_CONFIG_KEY_0": "credential.helper",
+    "GIT_CONFIG_VALUE_0": "store"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // Impede que a extensão Dev Containers copie o git config do host
+        // (incluindo seu credential.helper) para dentro do container,
+        // sobrescrevendo o helper "store" acima.
+        "dev.containers.copyGitConfig": false
+      }
+    }
   },
   "postCreateCommand": "bash .devcontainer/postCreate.sh"
 }
