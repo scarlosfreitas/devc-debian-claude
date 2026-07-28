@@ -11,15 +11,20 @@ set -euo pipefail
 
 echo "postCreate: iniciando setup do container..."
 
-# --- Credenciais git via token (regenerado a cada recriação do container) ----
-# /workspace (com .env e .git/config) é bind mount do host e sobrevive a
+# Raiz do projeto = pasta pai deste script (independe do workspaceFolder
+# configurado no devcontainer.json, que já mudou de nome antes).
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# --- Credenciais git + GH_TOKEN via token (regenerado a cada recriação do container) ----
+# $ROOT_DIR (com .env e .git/config) é bind mount do host e sobrevive a
 # rebuilds; /home/app é filesystem do container e é descartado a cada rebuild.
-# credential.helper=store já está configurado em /workspace/.git/config (persiste),
-# mas o arquivo ~/.git-credentials com o token em si precisa ser recriado aqui.
-if [ -f /workspace/.env ]; then
+# credential.helper=store já está configurado em $ROOT_DIR/.git/config (persiste),
+# mas o arquivo ~/.git-credentials com o token em si precisa ser recriado aqui,
+# assim como o export do GH_TOKEN (usado pela gh CLI) em ~/.bashrc.
+if [ -f "$ROOT_DIR/.env" ]; then
     set -a
     # shellcheck disable=SC1091
-    source /workspace/.env
+    source "$ROOT_DIR/.env"
     set +a
     if [ -n "${GIT_USERNAME:-}" ] && [ -n "${GIT_TOKKEN:-}" ]; then
         echo "postCreate: configurando credenciais git via token..."
@@ -32,6 +37,23 @@ if [ -f /workspace/.env ]; then
         chmod 600 ~/.git-credentials
     else
         echo "postCreate: GIT_USERNAME/GIT_TOKKEN não definidos em .env, pulando credenciais git."
+    fi
+
+    if [ -n "${GIT_TOKKEN:-}" ]; then
+        echo "postCreate: configurando GH_TOKEN para a gh CLI..."
+        cat > ~/.gh_token_env <<EOF
+export GH_TOKEN="${GIT_TOKKEN}"
+EOF
+        chmod 600 ~/.gh_token_env
+        if ! grep -qF '~/.gh_token_env' ~/.bashrc 2>/dev/null; then
+            {
+                echo ''
+                echo '# GH_TOKEN para a gh CLI (gerado pelo postCreate.sh a partir do .env)'
+                echo '[ -f ~/.gh_token_env ] && source ~/.gh_token_env'
+            } >> ~/.bashrc
+        fi
+    else
+        echo "postCreate: GIT_TOKKEN não definido em .env, pulando GH_TOKEN."
     fi
 fi
 
