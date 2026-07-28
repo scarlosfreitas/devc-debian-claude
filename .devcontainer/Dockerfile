@@ -55,17 +55,25 @@ RUN groupadd --gid 1000 app \
 RUN mkdir -p /home/app/.claude && chown -R app:app /home/app/.claude
 
 # --- ccusage (CLI de monitoramento de consumo de tokens Claude, via npm) ------
+# Instalação global (/usr/lib/node_modules + /usr/bin), ainda como root.
 RUN npm install -g ccusage
 
+# PATH do usuário app. Declarado ANTES das instalações abaixo porque tanto o
+# instalador do Bun quanto o "uv tool install" avisam/erram quando o diretório
+# de destino não está no PATH.
+ENV PATH="/home/app/.bun/bin:/home/app/.local/bin:${PATH}"
+
+# Volta para o usuário padrão não-root do container por segurança. Tudo daqui
+# para baixo instala em $HOME — e $HOME precisa ser /home/app, não /root, senão
+# os binários ficam fora do PATH (e sem permissão) para o usuário do container.
+USER app
+
 # --- Bun (runtime/gerenciador JS) ----------------------------------------------
+# Instala em $HOME/.bun => /home/app/.bun/bin.
 RUN curl -fsSL https://bun.com/install | bash
-ENV PATH="/home/app/.bun/bin:${PATH}"
 
 # --- claude-usage (CLI de monitoramento de consumo de tokens, via uv tool) ----
+# Instala em $HOME/.local/bin => /home/app/.local/bin.
 RUN uv tool install git+https://github.com/phuryn/claude-usage
-ENV PATH="/home/app/.local/bin:${PATH}"
-
-# Volta para o usuário padrão não-root do container por segurança
-USER app
 
 WORKDIR /workspace

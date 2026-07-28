@@ -5,10 +5,10 @@
 > `SHALL` e acompanhado de cenários verificáveis (`WHEN` / `THEN`), de modo que o PRD possa ser
 > convertido em testes sem interpretação adicional.
 >
-> **Estado do documento:** o `README.md` atual descreve artefatos que não existem no repositório
-> (`.claude/agents/`, `.claude/plans/`, `docs/`, `src/`, `test/`, `STATUS.md`). Esses itens foram
-> tratados como documentação desatualizada e movidos para *Evoluções futuras* (seção 10). O que
-> está nas seções 1 a 9 corresponde ao que existe hoje ou ao que foi explicitamente decidido.
+> **Estado do documento:** artefatos que a documentação antiga do repositório citava mas que não
+> existem (`.claude/agents/`, `.claude/plans/`, `docs/`, `src/`, `test/`, `STATUS.md`, e o próprio
+> `README.md`) foram movidos para *Evoluções futuras* (§11). O que está nas seções 1 a 9
+> corresponde ao que existe hoje ou ao que foi explicitamente decidido.
 
 ---
 
@@ -128,17 +128,31 @@ devcontainer/container **SHALL** ser derivado do nome do projeto, e não pergunt
   * **WHEN** não há terminal disponível e `--yes`/`INSTALL_YES` está ativo
   * **THEN** o instalador usa os valores das flags/variáveis e, na ausência delas, os padrões,
     sem bloquear a execução.
+* **Cenário: ausência de opção para o nome do container**
+  * **WHEN** o instalador é executado, interativa ou não-interativamente
+  * **THEN** não existe pergunta, flag (`--container`) nem variável (`INSTALL_CONTAINER`) para o
+    nome do container; as opções de dados são apenas `--name`/`INSTALL_NAME`,
+    `--description`/`INSTALL_DESCRIPTION` e `--project-folder`/`INSTALL_PROJECT_FOLDER`.
 
 ### RF3 — Paridade de caminho entre host e container
 
-O instalador **SHALL** definir `PROJECT_FOLDER` (em `.devcontainer/.env`) e `workspaceFolder` (em
-`.devcontainer/devcontainer.json`) com o caminho absoluto da pasta de instalação, obtido de `pwd`
-(ou equivalente no Windows).
+O instalador **SHALL** coletar do usuário um único caminho absoluto de projeto — oferecendo como
+padrão o diretório de instalação (`pwd`, ou equivalente no Windows) — e gravá-lo **nos dois
+lugares**: `PROJECT_FOLDER` (em `.devcontainer/.env`) e `workspaceFolder` (em
+`.devcontainer/devcontainer.json`). O valor é coletado por prompt interativo, por
+`--project-folder` (Linux/macOS) ou por `INSTALL_PROJECT_FOLDER` (Windows).
 
-* **Cenário: instalação em um caminho qualquer**
-  * **WHEN** o instalador roda em `/caminho/do/projeto`
+* **Cenário: padrão (pasta de instalação)**
+  * **WHEN** o instalador roda em `/caminho/do/projeto` e o usuário aceita o padrão
   * **THEN** `PROJECT_FOLDER=/caminho/do/projeto` e `workspaceFolder` recebe o mesmo valor,
     fazendo o bind mount do `docker-compose.yml` expor o projeto sob o caminho idêntico ao do host.
+* **Cenário: caminho informado pelo usuário**
+  * **WHEN** o usuário informa `/code/app-x`
+  * **THEN** `PROJECT_FOLDER=/code/app-x` **e** `workspaceFolder="/code/app-x"` — o mesmo valor,
+    nunca em só um dos dois arquivos.
+* **Cenário: caminho relativo**
+  * **WHEN** o valor informado não começa com `/`
+  * **THEN** o instalador aborta com erro, pois o bind mount exige caminho absoluto.
 * **Cenário: divergência**
   * **WHEN** `PROJECT_FOLDER` e `workspaceFolder` divergem
   * **THEN** a instalação é considerada inválida, pois o Claude Code deixa de reconhecer o mesmo
@@ -156,8 +170,25 @@ O instalador **SHALL** copiar `.devcontainer/.env.example` para `.devcontainer/.
 
 ### RF5 — Personalização do `devcontainer.json`
 
-O instalador **SHALL** reescrever `name` e `description` em `.devcontainer/devcontainer.json` com
-os dados coletados, preservando o JSON válido.
+O instalador **SHALL** reescrever `name`, `description` e `workspaceFolder` em
+`.devcontainer/devcontainer.json` com os dados coletados, **substituindo tudo o que vier depois da
+chave** (`"name":`, `"description":`, `"workspaceFolder":`) em vez de casar o valor antigo,
+preservando o JSON válido e os comentários do arquivo (JSONC).
+
+* **Cenário: valor anterior desconhecido**
+  * **WHEN** o `name` do template é qualquer texto
+  * **THEN** a linha inteira é reescrita como `"name": "<nome informado>",`, sem depender de qual
+    era o valor anterior.
+* **Cenário: `description` ausente**
+  * **WHEN** o `devcontainer.json` do template não tem a chave `description`
+  * **THEN** o instalador a acrescenta logo após `name`, com a descrição informada.
+* **Cenário: comentários**
+  * **WHEN** a reescrita termina
+  * **THEN** os comentários `//` do `devcontainer.json` continuam presentes e o arquivo segue
+    válido como JSONC.
+* **Cenário: chave obrigatória ausente**
+  * **WHEN** `name` ou `workspaceFolder` não existem no arquivo
+  * **THEN** o instalador aborta com erro, em vez de gerar um `devcontainer.json` incompleto.
 
 ### RF6 — Itens copiados para o projeto gerado
 
@@ -166,7 +197,7 @@ O instalador **SHALL** copiar para o projeto gerado **apenas** os itens abaixo, 
 
 | Item | Observação |
 |---|---|
-| `.claude/` | **exceto** `settings.local.json` e `PRD.md` |
+| `.claude/` | **exceto** `settings.local.json`, `PRD.md` e os symlinks de `.claude/skills/` |
 | `.devcontainer/` | diretório completo |
 | `prompts/` | diretório completo |
 | `scripts/` | diretório completo |
@@ -186,6 +217,15 @@ O instalador **SHALL** copiar para o projeto gerado **apenas** os itens abaixo, 
   * **WHEN** a instalação termina
   * **THEN** `scripts/` está presente por inteiro, incluindo `install.sh` e `install.ps1`, por
     `scripts/` ser copiado como diretório completo.
+* **Cenário: validação antes da cópia**
+  * **WHEN** falta algum item obrigatório da lista no template baixado
+  * **THEN** o instalador aborta **antes** de copiar qualquer coisa, sem deixar o destino pela
+    metade.
+* **Cenário: symlinks de skills**
+  * **WHEN** a instalação termina
+  * **THEN** não existem links simbólicos quebrados no projeto gerado — os symlinks de
+    `.claude/skills/` apontam para `.agents/skills/`, que não é copiado (RF10), e por isso são
+    descartados junto com o diretório `.claude/skills/` quando este fica vazio.
 
 ### RF7 — Ambiente do container
 
@@ -196,6 +236,17 @@ Bun, `git`, `gh`, `sudo`, utilitários de arquivo (`zip`/`unzip`/`xz-utils`), Go
 * **Cenário: escrita no workspace**
   * **WHEN** o container sobe com `user: ${HOST_UID:-1000}:${HOST_GID:-1000}`
   * **THEN** o usuário `app` escreve no workspace montado sem erro de permissão.
+* **Cenário: ferramentas no PATH do usuário do container**
+  * **WHEN** o usuário `app` executa `node`, `npm`, `uv`, `bun`, `git`, `gh`, `sudo`, `ccusage` ou
+    `claude-usage`
+  * **THEN** todos respondem pelo PATH, sem "command not found".
+* **Cenário: instalações em `$HOME`**
+  * **WHEN** a imagem instala ferramentas que gravam em `$HOME` (Bun em `$HOME/.bun`,
+    `uv tool install` em `$HOME/.local/bin`)
+  * **THEN** essas instalações rodam **como o usuário `app`** (após o `USER app`), de modo que os
+    binários caiam em `/home/app/...` — que é o que o `ENV PATH` declara — e não em `/root/...`;
+    o `ENV PATH` é declarado **antes** dessas instalações para que elas não emitam aviso de
+    diretório fora do PATH.
 
 ### RF8 — Configuração do Claude Code compartilhada com o host
 
@@ -304,10 +355,11 @@ devc-debian-claude/
         devcontainer-lock.json  < versão travada da feature claude-code
         .env.example            < DOCKER_IMAGE_NAME / DOCKER_IMAGE_TAG / CONTAINER_NAME / PROJECT_FOLDER
         .env                    [g] gerado pelo instalador
-    .claude/                    [i] exceto settings.local.json e PRD.md
+    .claude/                    [i] exceto settings.local.json, PRD.md e skills/
         settings.json           [i] hooks (bell ao terminar/notificar)
         PRD.md                  [t] este documento; no projeto gerado é um esqueleto novo
         settings.local.json     [g] skills desativadas neste projeto (não versionado)
+        skills/                 [t] symlinks para ../../.agents/skills/* (descartados na instalação)
     .agents/                    [t] não copiado para o projeto gerado
         skills/                 < skills instaladas via npx skills (uma pasta por skill)
     scripts/                    [i] diretório completo
@@ -317,14 +369,19 @@ devc-debian-claude/
         plugins.sh              < catálogo de plugins/MCPs sob demanda
         clean.sh                < remove container e volumes deste devcontainer
     prompts/                    [i] diretório completo
-        create-prd.md           < prompt usado para gerar este PRD
-        create-claude.md        < prompt usado para gerar o CLAUDE.md
+        1-create-prd.md         < prompt usado para gerar este PRD
+        2-create-claude.md      < prompt usado para gerar o CLAUDE.md
+        3-create-agents.md      < prompt para gerar os subagentes de review em .claude/agents/
+        4-create-readme.md      < prompt para gerar o README.md
     skills-lock.json            [i] lock das skills instaladas
     .env.example                [i] credenciais git (modelo)
     .gitignore                  [i]
     .env                        [g] credenciais git, preenchido pelo usuário
-    README.md                   [t] não copiado para o projeto gerado
+    CLAUDE.md                   [t] guia de trabalho no repositório; não copiado
 ```
+
+> `README.md` não existe hoje no repositório; sua geração está prevista em *Evoluções futuras*
+> (§11), a partir de `prompts/3-create-readme.md`. Quando existir, será `[t]`.
 
 ---
 
@@ -347,14 +404,20 @@ Não faz parte da primeira versão:
 * [ ] `scripts/install.ps1` produz o mesmo resultado no Windows.
 * [ ] Em modo não-interativo com `--yes`/`INSTALL_YES`, a instalação conclui sem prompts.
 * [ ] Em pasta não vazia e sem `--yes`, a instalação aborta sem sobrescrever arquivos.
-* [ ] `PROJECT_FOLDER` em `.devcontainer/.env` é igual ao `pwd` da instalação.
-* [ ] `workspaceFolder` em `.devcontainer/devcontainer.json` é igual ao `PROJECT_FOLDER`.
+* [ ] `PROJECT_FOLDER` em `.devcontainer/.env` é igual ao caminho informado (padrão: o `pwd` da
+      instalação).
+* [ ] `workspaceFolder` em `.devcontainer/devcontainer.json` é igual ao `PROJECT_FOLDER`, inclusive
+      quando o usuário informa um caminho diferente da pasta de instalação.
+* [ ] Um caminho de projeto relativo faz a instalação abortar.
 * [ ] Informar `Meu Projeto Novo` como nome resulta em `DOCKER_IMAGE_NAME=meu-projeto-novo` e
       `CONTAINER_NAME=meu-projeto-novo`, sem pergunta separada para o nome do container.
-* [ ] `name` e `description` em `devcontainer.json` refletem os dados informados, com JSON válido.
+* [ ] `name` e `description` em `devcontainer.json` refletem os dados informados, com JSON válido e
+      com os comentários do arquivo preservados.
 * [ ] O projeto gerado contém exatamente `.claude/`, `.devcontainer/`, `prompts/`, `scripts/`,
       `.env.example`, `.gitignore` e `skills-lock.json` — e nada além disso.
-* [ ] O projeto gerado **não** contém `README.md`, `.claude/settings.local.json` nem `.agents/`.
+* [ ] O projeto gerado **não** contém `README.md`, `CLAUDE.md`, `.claude/settings.local.json`,
+      `.claude/skills/` nem `.agents/`.
+* [ ] `find <projeto> -xtype l` não retorna nenhum link simbólico quebrado.
 * [ ] O projeto gerado contém um `.claude/PRD.md` esqueleto com o nome do projeto, e não o PRD do
       template.
 * [ ] "Reopen in Container" sobe o container, e dentro dele o projeto está no mesmo caminho
@@ -374,8 +437,11 @@ Não faz parte da primeira versão:
 
 * Estrutura documental de referência: `docs/domain/`, `docs/standards/`, `docs/guidelines/`, além
   de `src/`, `test/` e `STATUS.md`.
-* Correção do `README.md` para refletir a estrutura real (caminho dos instaladores em `scripts/`,
-  skills em `.agents/skills/`) e alinhamento das URLs de download.
+* Geração do `README.md` (a partir de `prompts/4-create-readme.md`), refletindo a estrutura real
+  (instaladores em `scripts/`, skills em `.agents/skills/`) e alinhando as URLs de download — hoje
+  os cabeçalhos dos instaladores ainda citam `.../main/install.sh` na raiz do repositório.
+* Subagentes de review em `.claude/agents/` (a partir de `prompts/3-create-agents.md`). Enquanto
+  não existirem, o esqueleto de `.claude/PRD.md` gerado pelo instalador ainda os menciona.
 * Preenchimento automático do `.env` da raiz pelo instalador, hoje manual por conter segredo.
 * Suporte multiarquitetura (`arm64`) na imagem de desenvolvimento.
 * Testes automatizados do bootstrap (`install.sh`/`install.ps1`) em CI.

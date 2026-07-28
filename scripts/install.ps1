@@ -5,8 +5,11 @@
 
 .DESCRIPTION
   Baixa o kit deste repositório, remove o .git do template, pergunta os dados
-  do novo projeto (nome, nome do devcontainer, descrição), reescreve os
-  arquivos afetados e inicializa um repositório git novo para o projeto.
+  do novo projeto (nome e descrição), reescreve os arquivos afetados e
+  inicializa um repositório git novo para o projeto.
+
+  O nome do devcontainer/container NÃO é perguntado: é derivado do nome do
+  projeto (RF2 do PRD).
 
 .EXAMPLE
   # Downloader avulso, totalmente interativo:
@@ -16,19 +19,19 @@
   # Não-interativo, via variáveis de ambiente (necessário ao usar "irm | iex",
   # que não aceita parâmetros de linha de comando):
   $env:INSTALL_NAME = "Meu Projeto"
-  $env:INSTALL_CONTAINER = "meu-projeto"
   $env:INSTALL_DESCRIPTION = "Descrição do meu projeto"
+  $env:INSTALL_PROJECT_FOLDER = "/code/meu-projeto"
   $env:INSTALL_YES = "1"
   irm .../install.ps1 | iex
 
 .EXAMPLE
   # Baixado localmente, com parâmetros normais:
-  .\install.ps1 -Name "Meu Projeto" -ContainerName "meu-projeto" -Description "..." -Yes
+  .\install.ps1 -Name "Meu Projeto" -Description "..." -Yes
 #>
 param(
   [string]$Name = $env:INSTALL_NAME,
-  [string]$ContainerName = $env:INSTALL_CONTAINER,
   [string]$Description = $env:INSTALL_DESCRIPTION,
+  [string]$ProjectFolder = $env:INSTALL_PROJECT_FOLDER,
   [string]$Dir = $(if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "." }),
   [string]$RepoUrl = $(if ($env:INSTALL_REPO_URL) { $env:INSTALL_REPO_URL } else { "https://github.com/scarlosfreitas/devc-debian-claude.git" }),
   [string]$Branch = $(if ($env:INSTALL_BRANCH) { $env:INSTALL_BRANCH } else { "main" }),
@@ -107,15 +110,42 @@ try {
   Remove-Item -Recurse -Force (Join-Path $TmpDir ".git")
 
   Write-Step "copiando arquivos para '$Dir'..."
-  # arquivos que só fazem sentido no template (documentação/config interna do
-  # devc-debian-claude) e não devem ser instalados no projeto-alvo
-  $excludeNames = @('README.md', 'STATUS.md', 'CLAUDE.md', 'PRD.md', 'settings.local.json')
-  Get-ChildItem -Recurse -Force -Path $TmpDir -File |
-    Where-Object { $excludeNames -contains $_.Name } |
-    Remove-Item -Force
+  # Lista FECHADA do RF6: só estes itens vão para o projeto gerado. O que não
+  # estiver aqui (README.md, CLAUDE.md, .claude/PRD.md, .claude/settings.local.json,
+  # .agents/skills/, ...) fica só no template.
+  $dirItems = @('.claude', '.devcontainer', 'prompts', 'scripts')
+  $fileItems = @('.env.example', '.gitignore', 'skills-lock.json')
 
-  Get-ChildItem -Force -Path $TmpDir | ForEach-Object {
-    Copy-Item -Path $_.FullName -Destination $Dir -Recurse -Force
+  # valida tudo antes de copiar qualquer coisa, para não deixar o destino pela metade
+  foreach ($d in $dirItems) {
+    if (-not (Test-Path (Join-Path $TmpDir $d))) { Fail "item obrigatório ausente no template: $d/" }
+  }
+  foreach ($f in $fileItems) {
+    if (-not (Test-Path (Join-Path $TmpDir $f))) { Fail "item obrigatório ausente no template: $f" }
+  }
+
+  foreach ($d in $dirItems) {
+    $dest = Join-Path $Dir $d
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+    Copy-Item -Path (Join-Path (Join-Path $TmpDir $d) '*') -Destination $dest -Recurse -Force
+  }
+  foreach ($f in $fileItems) {
+    Copy-Item -Path (Join-Path $TmpDir $f) -Destination (Join-Path $Dir $f) -Force
+  }
+
+  # .claude/ é copiado exceto estes dois: o PRD é regerado como esqueleto mais
+  # abaixo, e o settings.local.json do template desativaria skills no projeto novo.
+  Remove-Item -Force -ErrorAction SilentlyContinue `
+    -Path (Join-Path $Dir '.claude/PRD.md'), (Join-Path $Dir '.claude/settings.local.json')
+
+  # .claude/skills/ é um conjunto de symlinks para .agents/skills/, que NÃO é
+  # copiado (RF10: as skills são materializadas sob demanda no projeto novo).
+  # Sem isso o projeto nasceria com links quebrados.
+  # (Detecção de link quebrado varia entre versões do PowerShell; como .agents/
+  # nunca é copiado, todos esses links são quebrados por construção.)
+  $skillsDir = Join-Path $Dir '.claude/skills'
+  if ((Test-Path $skillsDir) -and -not (Test-Path (Join-Path $Dir '.agents'))) {
+    Remove-Item -Force -Recurse -ErrorAction SilentlyContinue $skillsDir
   }
 } finally {
   Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $TmpDir
@@ -128,40 +158,74 @@ Set-Location $Dir
 $DefaultName = Split-Path -Leaf $Dir
 $Name = Prompt-Default -Current $Name -Message "Nome do projeto" -Default $DefaultName
 
-$DefaultContainer = Slugify $Name
-$ContainerName = Prompt-Default -Current $ContainerName -Message "Nome do devcontainer/container" -Default $DefaultContainer
-
 $Description = Prompt-Default -Current $Description -Message "Descrição do projeto" -Default "Ambiente de desenvolvimento padrão deste projeto."
 
-$ContainerSlug = Slugify $ContainerName
-if ([string]::IsNullOrWhiteSpace($ContainerSlug)) { $ContainerSlug = $DefaultContainer }
+# RF3: o mesmo caminho absoluto no host e dentro do container. O padrão é a
+# pasta de instalação; o usuário pode informar outro valor, mas ele será usado
+# nos DOIS lugares (PROJECT_FOLDER e workspaceFolder), nunca em só um.
+# O caminho vai para dentro do container (Linux), então usamos "/" mesmo quando
+# o host é Windows.
+$DefaultFolder = ($Dir -replace '\\', '/')
+$ProjectFolder = Prompt-Default -Current $ProjectFolder -Message "Caminho do projeto no host e no container" -Default $DefaultFolder
+$ProjectFolder = ($ProjectFolder -replace '\\', '/').TrimEnd()
 
-# --- reescreve devcontainer.json (JSON de verdade, não regex) -------------
+# RF2: o nome do container é derivado do nome do projeto, não perguntado.
+$ContainerSlug = Slugify $Name
+if ([string]::IsNullOrWhiteSpace($ContainerSlug)) { $ContainerSlug = Slugify $DefaultName }
+if ([string]::IsNullOrWhiteSpace($ContainerSlug)) { Fail "não foi possível derivar um nome de container a partir de '$Name'." }
+
+# --- reescreve devcontainer.json -------------------------------------------
 
 Write-Step "atualizando .devcontainer/devcontainer.json..."
+# Reescrita por linha (em vez de ConvertFrom-Json/ConvertTo-Json): o arquivo é
+# JSONC, e o round-trip pelo parser apagaria os comentários e reordenaria as
+# chaves. Tudo que vier depois de "name": / "description": / "workspaceFolder":
+# é substituído, sem depender do valor que veio do template.
+function Escape-Json([string]$Text) { return $Text.Replace('\', '\\').Replace('"', '\"') }
+
 $dcPath = Join-Path $Dir ".devcontainer/devcontainer.json"
-$dc = Get-Content -Raw -Path $dcPath | ConvertFrom-Json
-$dc.name = $Name
-if ($dc.PSObject.Properties.Name -contains 'description') {
-  $dc.description = $Description
-} else {
-  $dc | Add-Member -NotePropertyName description -NotePropertyValue $Description
+$nameJson = Escape-Json $Name
+$descJson = Escape-Json $Description
+$folderJson = Escape-Json $ProjectFolder
+
+$seenName = $false
+$seenFolder = $false
+$dcOut = foreach ($line in (Get-Content -Path $dcPath)) {
+  # "description" é reemitido logo após "name"; descarta o que já existir.
+  if ($line -match '^\s*"description"\s*:') { continue }
+  if (-not $seenName -and $line -match '^\s*"name"\s*:') {
+    $seenName = $true
+    "  `"name`": `"$nameJson`","
+    "  `"description`": `"$descJson`","
+    continue
+  }
+  if (-not $seenFolder -and $line -match '^\s*"workspaceFolder"\s*:') {
+    $seenFolder = $true
+    "  `"workspaceFolder`": `"$folderJson`","
+    continue
+  }
+  $line
 }
-# Nota: o round-trip ConvertFrom-Json/ConvertTo-Json pode reordenar chaves;
-# o JSON resultante continua válido, só muda a formatação cosmética.
-($dc | ConvertTo-Json -Depth 10) | Set-Content -Path $dcPath -Encoding utf8
+if (-not $seenName) { Fail "chave `"name`" não encontrada em devcontainer.json." }
+if (-not $seenFolder) { Fail "chave `"workspaceFolder`" não encontrada em devcontainer.json." }
+($dcOut -join "`n") + "`n" | Set-Content -Path $dcPath -Encoding utf8 -NoNewline
 
 # --- gera o .env a partir do .env.example ----------------------------------
 
 Write-Step "gerando .devcontainer/.env..."
 $envExamplePath = Join-Path $Dir ".devcontainer/.env.example"
 $envPath = Join-Path $Dir ".devcontainer/.env"
+# PROJECT_FOLDER precisa ser idêntico ao workspaceFolder acima (RF3): o
+# docker-compose monta o projeto nesse caminho dentro do container.
+$seenEnvFolder = $false
 $envLines = Get-Content -Path $envExamplePath | ForEach-Object {
   if ($_ -match '^DOCKER_IMAGE_NAME=') { "DOCKER_IMAGE_NAME=$ContainerSlug" }
   elseif ($_ -match '^DOCKER_IMAGE_TAG=') { "DOCKER_IMAGE_TAG=0.1" }
   elseif ($_ -match '^CONTAINER_NAME=') { "CONTAINER_NAME=$ContainerSlug" }
+  elseif ($_ -match '^PROJECT_FOLDER=') { $seenEnvFolder = $true; "PROJECT_FOLDER=$ProjectFolder" }
   else { $_ }
 }
+if (-not $seenEnvFolder) { $envLines += "PROJECT_FOLDER=$ProjectFolder" }
 ($envLines -join "`n") + "`n" | Set-Content -Path $envPath -Encoding utf8 -NoNewline
 
 # --- esqueleto de PRD do projeto-alvo ---------------------------------------
@@ -215,10 +279,9 @@ funcionalidade) pronto.
 $prdBody = $prdBody -replace '__PROJECT_NAME__', $Name
 Set-Content -Path $prdPath -Value $prdBody -Encoding utf8
 
-# --- remove artefatos que só fazem sentido no template ----------------------
-
-Write-Step "removendo artefatos do template..."
-Remove-Item -Force -ErrorAction SilentlyContinue -Path (Join-Path $Dir "install.sh"), (Join-Path $Dir "install.ps1")
+# Nada a remover aqui: a cópia acima já é a lista fechada do RF6 — os itens que
+# só fazem sentido no template nunca chegam ao projeto gerado. Os instaladores
+# em scripts/ são copiados de propósito (scripts/ vai inteiro).
 
 # --- git init ------------------------------------------------------------------
 
@@ -234,8 +297,11 @@ if (-not $NoCommit) {
 
 Write-Host ""
 Write-Step "projeto '$Name' criado em '$Dir'."
+Write-Host "  container:      $ContainerSlug"
+Write-Host "  PROJECT_FOLDER: $ProjectFolder (igual ao workspaceFolder)"
 Write-Host "Próximos passos:"
-Write-Host "  1. Abra a pasta no VS Code."
-Write-Host "  2. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
-Write-Host "  3. Faça login no Claude Code (chat e terminal)."
-Write-Host "  4. Preencha .claude/PRD.md e STATUS.md antes de acionar o ciclo plan -> run -> test."
+Write-Host "  1. Copie .env.example para .env e preencha suas credenciais git."
+Write-Host "  2. Abra a pasta no VS Code."
+Write-Host "  3. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
+Write-Host "  4. Faça login no Claude Code (chat e terminal)."
+Write-Host "  5. Preencha .claude/PRD.md."

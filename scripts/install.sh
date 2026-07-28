@@ -4,14 +4,17 @@ set -euo pipefail
 # install.sh — bootstrap do devc-debian-claude (Linux/macOS)
 #
 # Baixa o kit deste repositório, remove o .git do template, pergunta os dados
-# do novo projeto (nome, nome do devcontainer, descrição), reescreve os
-# arquivos afetados e inicializa um repositório git novo para o projeto.
+# do novo projeto (nome e descrição), reescreve os arquivos afetados e
+# inicializa um repositório git novo para o projeto.
+#
+# O nome do devcontainer/container NÃO é perguntado: ele é derivado do nome do
+# projeto (RF2 do PRD).
 #
 # Uso recomendado (downloader avulso, sem clonar manualmente):
 #   curl -fsSL https://raw.githubusercontent.com/scarlosfreitas/devc-debian-claude/main/install.sh | bash
 #
 # Modo não-interativo:
-#   curl -fsSL .../install.sh | bash -s -- --name "Meu Projeto" --container "meu-projeto" \
+#   curl -fsSL .../install.sh | bash -s -- --name "Meu Projeto" \
 #     --description "Descrição do projeto" --yes
 #
 # Ver --help para todas as opções.
@@ -20,8 +23,8 @@ REPO_URL="https://github.com/scarlosfreitas/devc-debian-claude.git"
 BRANCH="main"
 TARGET_DIR="."
 PROJECT_NAME=""
-CONTAINER_NAME=""
 DESCRIPTION=""
+PROJECT_FOLDER=""
 ASSUME_YES=false
 DO_COMMIT=true
 
@@ -32,8 +35,11 @@ Uso: install.sh [opções]
 Opções:
   --dir <path>            Diretório de destino do novo projeto (padrão: .)
   --name <texto>          Nome do projeto
-  --container <texto>     Nome do devcontainer/container
   --description <texto>   Descrição do projeto (vai para devcontainer.json)
+  --project-folder <path> Caminho absoluto do projeto, usado como PROJECT_FOLDER
+                           em .devcontainer/.env e como workspaceFolder em
+                           .devcontainer/devcontainer.json (padrão: o diretório
+                           de destino)
   --repo-url <url>        URL do repositório do template (padrão: oficial)
   --branch <nome>         Branch do template a baixar (padrão: main)
   -y, --force, --yes      Não pede confirmação/prompts; usa padrões ou flags;
@@ -41,9 +47,12 @@ Opções:
   --no-commit             Não cria o commit inicial (só roda git init)
   -h, --help              Mostra esta ajuda
 
-Sem os flags de dados (--name/--container/--description), o script pergunta
-interativamente. Em modo não interativo (sem terminal disponível) sem --yes,
-o script aborta em vez de adivinhar os valores.
+O nome do devcontainer/container não é perguntado: é derivado do nome do
+projeto (espaços viram "-" e o texto vai para minúsculas).
+
+Sem os flags de dados (--name/--description/--project-folder), o script
+pergunta interativamente. Em modo não interativo (sem terminal disponível) sem
+--yes, o script aborta em vez de adivinhar os valores.
 EOF
 }
 
@@ -51,8 +60,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dir) TARGET_DIR="$2"; shift 2 ;;
     --name) PROJECT_NAME="$2"; shift 2 ;;
-    --container) CONTAINER_NAME="$2"; shift 2 ;;
     --description) DESCRIPTION="$2"; shift 2 ;;
+    --project-folder) PROJECT_FOLDER="$2"; shift 2 ;;
     --repo-url) REPO_URL="$2"; shift 2 ;;
     --branch) BRANCH="$2"; shift 2 ;;
     -y|--force|--yes) ASSUME_YES=true; shift ;;
@@ -106,12 +115,36 @@ git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$TMP_DIR"
 rm -rf "$TMP_DIR/.git"
 
 log "copiando arquivos para '$TARGET_DIR'..."
-# arquivos que só fazem sentido no template (documentação/config interna do
-# devc-debian-claude) e não devem ser instalados no projeto-alvo
-for f in README.md STATUS.md CLAUDE.md PRD.md settings.local.json; do
-  find "$TMP_DIR" -iname "$f" -delete
+# Lista FECHADA do RF6: só estes itens vão para o projeto gerado. O que não
+# estiver aqui (README.md, CLAUDE.md, .claude/PRD.md, .claude/settings.local.json,
+# .agents/skills/, ...) fica só no template.
+# valida tudo antes de copiar qualquer coisa, para não deixar o destino pela metade
+for d in .claude .devcontainer prompts scripts; do
+  [[ -d "$TMP_DIR/$d" ]] || die "item obrigatório ausente no template: $d/"
 done
-cp -a "$TMP_DIR"/. "$TARGET_DIR"/
+for f in .env.example .gitignore skills-lock.json; do
+  [[ -f "$TMP_DIR/$f" ]] || die "item obrigatório ausente no template: $f"
+done
+
+for d in .claude .devcontainer prompts scripts; do
+  mkdir -p "$TARGET_DIR/$d"
+  cp -a "$TMP_DIR/$d/." "$TARGET_DIR/$d/"
+done
+for f in .env.example .gitignore skills-lock.json; do
+  cp -a "$TMP_DIR/$f" "$TARGET_DIR/$f"
+done
+
+# .claude/ é copiado exceto estes dois: o PRD é regerado como esqueleto mais
+# abaixo, e o settings.local.json do template desativaria skills no projeto novo.
+rm -f "$TARGET_DIR/.claude/PRD.md" "$TARGET_DIR/.claude/settings.local.json"
+
+# .claude/skills/ é um conjunto de symlinks para .agents/skills/, que NÃO é
+# copiado (RF10: as skills são materializadas sob demanda no projeto novo).
+# Sem isso o projeto nasceria com links quebrados.
+if [[ -d "$TARGET_DIR/.claude/skills" ]]; then
+  find "$TARGET_DIR/.claude/skills" -maxdepth 1 -type l ! -exec test -e {} \; -delete
+  rmdir "$TARGET_DIR/.claude/skills" 2>/dev/null || true
+fi
 
 cd "$TARGET_DIR"
 
@@ -147,39 +180,77 @@ prompt_default() {
 DEFAULT_NAME="$(basename "$TARGET_DIR")"
 prompt_default PROJECT_NAME "Nome do projeto" "$DEFAULT_NAME"
 
-DEFAULT_CONTAINER="$(slugify "$PROJECT_NAME")"
-prompt_default CONTAINER_NAME "Nome do devcontainer/container" "$DEFAULT_CONTAINER"
-
 prompt_default DESCRIPTION "Descrição do projeto" "Ambiente de desenvolvimento padrão deste projeto."
+
+# RF3: o mesmo caminho absoluto no host e dentro do container. O padrão é a
+# pasta de instalação; o usuário pode informar outro valor, mas ele será usado
+# nos DOIS lugares (PROJECT_FOLDER e workspaceFolder), nunca em só um.
+prompt_default PROJECT_FOLDER "Caminho do projeto no host e no container" "$TARGET_DIR"
 
 # remove quebras de linha acidentais nos valores coletados
 PROJECT_NAME="${PROJECT_NAME//$'\n'/ }"
-CONTAINER_NAME="${CONTAINER_NAME//$'\n'/ }"
 DESCRIPTION="${DESCRIPTION//$'\n'/ }"
-CONTAINER_SLUG="$(slugify "$CONTAINER_NAME")"
-[[ -n "$CONTAINER_SLUG" ]] || CONTAINER_SLUG="$DEFAULT_CONTAINER"
+PROJECT_FOLDER="${PROJECT_FOLDER//$'\n'/ }"
+
+[[ "$PROJECT_FOLDER" = /* ]] || die "o caminho do projeto deve ser absoluto: '$PROJECT_FOLDER'."
+
+# RF2: o nome do container é derivado do nome do projeto, não perguntado.
+CONTAINER_SLUG="$(slugify "$PROJECT_NAME")"
+[[ -n "$CONTAINER_SLUG" ]] || CONTAINER_SLUG="$(slugify "$DEFAULT_NAME")"
+[[ -n "$CONTAINER_SLUG" ]] || die "não foi possível derivar um nome de container a partir de '$PROJECT_NAME'."
 
 # --- reescreve devcontainer.json -----------------------------------------
 
 log "atualizando .devcontainer/devcontainer.json..."
-NAME_JSON="$(esc_sed_repl "$(esc_json "$PROJECT_NAME")")"
-DESC_JSON="$(esc_sed_repl "$(esc_json "$DESCRIPTION")")"
-sed -i.bak \
-  -e "s/\"name\": \"Debian + Claude Code\"/\"name\": \"$NAME_JSON\"/" \
-  -e "s/\"description\": \"Ambiente de desenvolvimento padrão deste projeto\.\"/\"description\": \"$DESC_JSON\"/" \
-  .devcontainer/devcontainer.json
-rm -f .devcontainer/devcontainer.json.bak
+# Reescreve por linha (em vez de casar o valor antigo) para não depender do
+# conteúdo que veio do template: tudo que vier depois de "name": / "description":
+# / "workspaceFolder": é substituído. O arquivo é JSONC (tem comentários), então
+# não passamos por um parser JSON — os comentários precisam sobreviver.
+#
+# Os valores chegam pelo ambiente (ENVIRON), e não por "awk -v": o -v reprocessa
+# sequências de escape, o que desfaria o escape de aspas/barras do esc_json.
+DC_NAME="$(esc_json "$PROJECT_NAME")" \
+DC_DESC="$(esc_json "$DESCRIPTION")" \
+DC_FOLDER="$(esc_json "$PROJECT_FOLDER")" \
+awk '
+  BEGIN { name = ENVIRON["DC_NAME"]; desc = ENVIRON["DC_DESC"]; folder = ENVIRON["DC_FOLDER"] }
+  # "description" é reemitido logo após "name"; descarta o que já existir.
+  /^[[:space:]]*"description"[[:space:]]*:/ { next }
+  /^[[:space:]]*"name"[[:space:]]*:/ && !seen_name {
+    seen_name = 1
+    printf "  \"name\": \"%s\",\n", name
+    printf "  \"description\": \"%s\",\n", desc
+    next
+  }
+  /^[[:space:]]*"workspaceFolder"[[:space:]]*:/ && !seen_folder {
+    seen_folder = 1
+    printf "  \"workspaceFolder\": \"%s\",\n", folder
+    next
+  }
+  { print }
+  END {
+    if (!seen_name)   { print "ERRO: chave \"name\" não encontrada" > "/dev/stderr"; exit 1 }
+    if (!seen_folder) { print "ERRO: chave \"workspaceFolder\" não encontrada" > "/dev/stderr"; exit 1 }
+  }
+' .devcontainer/devcontainer.json > .devcontainer/devcontainer.json.new \
+  || die "falha ao reescrever devcontainer.json."
+mv .devcontainer/devcontainer.json.new .devcontainer/devcontainer.json
 
 # --- gera o .env a partir do .env.example --------------------------------
 
 log "gerando .devcontainer/.env..."
 cp .devcontainer/.env.example .devcontainer/.env
+# PROJECT_FOLDER precisa ser idêntico ao workspaceFolder acima (RF3): o
+# docker-compose monta o projeto nesse caminho dentro do container.
 sed -i.bak \
-  -e "s/^DOCKER_IMAGE_NAME=.*/DOCKER_IMAGE_NAME=$CONTAINER_SLUG/" \
+  -e "s/^DOCKER_IMAGE_NAME=.*/DOCKER_IMAGE_NAME=$(esc_sed_repl "$CONTAINER_SLUG")/" \
   -e "s/^DOCKER_IMAGE_TAG=.*/DOCKER_IMAGE_TAG=0.1/" \
-  -e "s/^CONTAINER_NAME=.*/CONTAINER_NAME=$CONTAINER_SLUG/" \
+  -e "s/^CONTAINER_NAME=.*/CONTAINER_NAME=$(esc_sed_repl "$CONTAINER_SLUG")/" \
+  -e "s/^PROJECT_FOLDER=.*/PROJECT_FOLDER=$(esc_sed_repl "$PROJECT_FOLDER")/" \
   .devcontainer/.env
 rm -f .devcontainer/.env.bak
+grep -q "^PROJECT_FOLDER=" .devcontainer/.env \
+  || printf '\nPROJECT_FOLDER=%s\n' "$PROJECT_FOLDER" >> .devcontainer/.env
 
 # --- esqueleto de PRD do projeto-alvo -------------------------------------
 
@@ -228,10 +299,9 @@ Checklist verificável do que precisa ser verdade para considerar o projeto (ou 
 funcionalidade) pronto.
 EOF
 
-# --- remove artefatos que só fazem sentido no template --------------------
-
-log "removendo artefatos do template..."
-rm -f install.sh install.ps1
+# Nada a remover aqui: a cópia acima já é a lista fechada do RF6 — os itens que
+# só fazem sentido no template nunca chegam ao projeto gerado. Os instaladores
+# em scripts/ são copiados de propósito (scripts/ vai inteiro).
 
 # --- git init --------------------------------------------------------------
 
@@ -246,8 +316,11 @@ fi
 
 echo
 log "projeto '$PROJECT_NAME' criado em '$TARGET_DIR'."
+echo "  container:      $CONTAINER_SLUG"
+echo "  PROJECT_FOLDER: $PROJECT_FOLDER (igual ao workspaceFolder)"
 echo "Próximos passos:"
-echo "  1. Abra a pasta no VS Code."
-echo "  2. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
-echo "  3. Faça login no Claude Code (chat e terminal)."
-echo "  4. Preencha .claude/PRD.md e STATUS.md antes de acionar o ciclo plan -> run -> test."
+echo "  1. Copie .env.example para .env e preencha suas credenciais git."
+echo "  2. Abra a pasta no VS Code."
+echo "  3. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
+echo "  4. Faça login no Claude Code (chat e terminal)."
+echo "  5. Preencha .claude/PRD.md."
