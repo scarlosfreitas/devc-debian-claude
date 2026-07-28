@@ -28,6 +28,7 @@ aberto no devcontainer — sem repetir manualmente a montagem da base a cada pro
 - [Estrutura de pastas](#estrutura-de-pastas)
 - [Funcionalidades implementadas](#funcionalidades-implementadas)
 - [Como executar o projeto](#como-executar-o-projeto)
+- [Ciclo de trabalho e revisão (SDD)](#ciclo-de-trabalho-e-revisão-sdd)
 - [Manutenção do ambiente](#manutenção-do-ambiente)
 - [Capturas de tela sugeridas](#capturas-de-tela-sugeridas)
 - [Fora do escopo](#fora-do-escopo)
@@ -159,9 +160,11 @@ devc-debian-claude/
         .env                    [g] gerado pelo instalador
     .claude/                    [i] exceto settings.local.json, PRD.md e skills/
         settings.json           [i] hooks (bell ao terminar/notificar)
+        agents/                 [i] subagentes; hoje só sdd-reviewer.md (revisão antes do Apply)
         PRD.md                  [t] fonte de verdade do produto; no projeto gerado é um esqueleto novo
         settings.local.json     [g] skills desativadas neste projeto (não versionado)
         skills/                 [t] symlinks para ../../.agents/skills/*
+            sdd-review/         < processo de revisão de change OpenSpec (pasta real, não symlink)
     .agents/                    [t] não copiado para o projeto gerado
         skills/                 < skills instaladas via npx skills (uma pasta por skill)
     scripts/                    [i] diretório completo
@@ -170,11 +173,13 @@ devc-debian-claude/
         install-skill.sh        < catálogo de skills instaláveis
         plugins.sh              < catálogo de plugins/MCPs sob demanda
         clean.sh                < remove container e volumes deste devcontainer
-    prompts/                    [i] diretório completo
-        1-create-prd.md         < prompt usado para gerar o PRD
-        2-create-claude.md      < prompt usado para gerar o CLAUDE.md
-        3-create-agents.md      < prompt para gerar os subagentes de review
-        4-create-readme.md      < prompt usado para gerar este README
+    prompts/                    [i] diretório completo — prompts numerados na ordem de uso
+        1-create-prd.md         < gera o PRD do projeto
+        2-create-claude.md      < gera o CLAUDE.md do projeto
+        3-create-agents.md      < gera os subagentes review-* (revisão final)
+        4-create-readme.md      < gera o README do projeto
+        5-new-feature-script.md < roteiro de nova funcionalidade (vazio; ver observação abaixo)
+        6-final-review.md       < aciona os review-* e o review-manager
     skills-lock.json            [i] lock das skills instaladas
     .env.example                [i] credenciais git (modelo)
     .gitignore                  [i]
@@ -186,6 +191,9 @@ devc-debian-claude/
 O projeto gerado recebe **apenas** os itens `[i]` — mais o `.claude/PRD.md` esqueleto criado pelo
 instalador. É uma lista fechada: `README.md`, `CLAUDE.md`, o PRD do template, o
 `settings.local.json` e o diretório `.agents/skills/` ficam de fora.
+
+> `prompts/5-new-feature-script.md` existe mas está **vazio**: o roteiro de nova funcionalidade
+> ainda não foi escrito. Os demais prompts numerados estão completos.
 
 ## Funcionalidades implementadas
 
@@ -202,6 +210,7 @@ instalador. É uma lista fechada: `README.md`, `CLAUDE.md`, o PRD do template, o
 | RF9 | **Credenciais git e `GH_TOKEN`** | O `postCreate.sh` recria `~/.git-credentials` (`600`) e o `GH_TOKEN` a partir do `.env`; sem `.env`, pula com mensagem e termina com sucesso |
 | RF10 | **Catálogo sob demanda** | Skills versionadas e desativáveis por projeto; plugins/MCPs **nunca** instalados automaticamente |
 | RF11 | **Limpeza do ambiente** | `clean.sh` remove container e volumes do projeto, preservando o volume compartilhado `vscode` |
+| RF12 | **Trilha de revisão SDD** | Duas camadas somente-leitura: `sdd-reviewer` + skill `sdd-review` entre o `/opsx:propose` e o `/opsx:apply`; subagentes `review-*` na revisão final. Ver [Ciclo de trabalho e revisão (SDD)](#ciclo-de-trabalho-e-revisão-sdd) |
 
 Requisitos não-funcionais atendidos: portabilidade (bash e PowerShell), idempotência do
 `postCreate.sh`, segredos em arquivos `600` com `.env` fora do git, imagem enxuta
@@ -309,6 +318,99 @@ for c in node npm uv bun git gh sudo ccusage claude-usage; do command -v "$c"; d
 gh auth status
 ```
 
+## Ciclo de trabalho e revisão (SDD)
+
+O template não entrega só o ambiente: entrega também a **trilha de Spec-Driven Development** que se
+usa dentro dele, com o OpenSpec no centro e **duas camadas de revisão independentes**, que atuam em
+momentos diferentes e com escopos diferentes.
+
+```mermaid
+flowchart LR
+    PRD[".claude/PRD.md<br/>fonte de verdade"] --> PROP["/opsx:propose<br/>gera a change"]
+    PROP --> REV1["sdd-reviewer<br/>(skill sdd-review)<br/>revisa a change"]
+    REV1 -->|"Pronto para Apply"| APP["/opsx:apply<br/>implementa"]
+    REV1 -->|"Requer ajustes"| PROP
+    APP --> REV2["review-architect · review-performance<br/>review-blazor · review-ui<br/>revisão final do projeto"]
+    REV2 --> MGR["review-manager<br/>consolida"]
+    MGR --> DOC["docs/reviews/<br/>review-AAAA-MM-DD.md"]
+    DOC -->|"base da próxima change"| PROP
+```
+
+### Camada 1 — revisão da change, antes do Apply
+
+Revisa **os artefatos da change**, não o código: a especificação ainda vai ser implementada.
+
+| Peça | Papel |
+|---|---|
+| [`.claude/skills/sdd-review/SKILL.md`](.claude/skills/sdd-review/SKILL.md) | A **skill**: define o processo de revisão em seis etapas |
+| [`.claude/agents/sdd-reviewer.md`](.claude/agents/sdd-reviewer.md) | O **subagente** que executa esse processo, usando a skill como guia |
+
+**Quando executar:** depois do `/opsx:propose` e **antes** do `/opsx:apply`. É esse o ponto em que
+corrigir sai barato — depois do Apply, cada inconsistência da spec já virou retrabalho de código.
+
+O subagente lê `proposal.md`, `design.md`, `tasks.md`, `specs/` e o `CLAUDE.md` do projeto, tratando-os
+como única fonte de verdade, e percorre as seis etapas da skill:
+
+| Etapa | O que procura |
+|---|---|
+| **Consistência** | Requisitos conflitantes, funcionalidade descrita em um só artefato, tarefa sem requisito, requisito sem tarefa |
+| **Escopo** | Change grande demais, funcionalidades que deveriam virar changes separadas, dependências entre elas |
+| **Arquitetura** | Violações do `CLAUDE.md`, estrutura de pastas inconsistente, componentes grandes demais, acoplamento |
+| **Implementação** | Dependências, serviços, entidades e casos de uso ausentes; fluxos incompletos |
+| **Banco de dados** | Entidades incompletas, relacionamentos ausentes, dados não previstos |
+| **Riscos** | Classificação baixo/médio/alto, ambiguidades e decisões não documentadas |
+
+O relatório sai em quatro seções — **Pontos Positivos**, **Problemas Encontrados**, **Recomendações**
+e **Conclusão** — e a conclusão é binária: *Pronto para Apply* ou *Requer ajustes antes do Apply*.
+
+O `sdd-reviewer` é **estritamente somente leitura** (`tools: Read, Grep, Glob`, com Write/Edit/Bash
+explicitamente negados). Mesmo diante de um erro trivial ele não corrige: apenas registra o problema
+com a localização exata. Isso é deliberado — a decisão de aplicar qualquer correção fica com o
+desenvolvedor, fora da revisão, e um revisor que edita deixa de ser um controle independente.
+
+### Camada 2 — revisão final do projeto, entre ciclos
+
+Revisa **o projeto implementado**, e vai muito além do código: arquitetura, desempenho, ciclo de
+vida do framework, UX e acessibilidade. Os subagentes são criados pelo prompt
+[`prompts/3-create-agents.md`](prompts/3-create-agents.md) e acionados pelo prompt
+[`prompts/6-final-review.md`](prompts/6-final-review.md).
+
+| Subagente | Área exclusiva |
+|---|---|
+| `review-architect` | Organização do projeto, separação de responsabilidades, SOLID, acoplamento, coesão, duplicação |
+| `review-performance` | Consultas LINQ/EF Core, consultas repetidas, cache, alocações, renderizações, complexidade |
+| `review-blazor` | `RenderMode`, ciclo de vida dos componentes, `StateHasChanged`, `JSInterop`, `RenderFragment`, prerendering |
+| `review-ui` | UX, navegação, consistência visual, responsividade, Bootstrap, acessibilidade |
+| `review-manager` | Consolida os relatórios — **não analisa código** |
+
+Três regras sustentam esse desenho:
+
+- **Independência total.** Cada especialista atua só na sua área. Ao encontrar um problema fora
+  dela, apenas o menciona como observação, sem recomendar nada a respeito.
+- **Nenhum deles escreve código nem altera arquivos.** O produto da revisão é um relatório técnico,
+  não um patch.
+- **O `review-manager` não reinterpreta.** Ele consolida, agrupa semelhantes, elimina duplicatas,
+  aponta conflitos entre recomendações e prioriza — sem alterar as conclusões técnicas dos
+  especialistas.
+
+Todos usam o mesmo formato de relatório: **Resumo Executivo**, **Problemas encontrados**
+(localização, descrição, justificativa), **Impacto**, **Recomendação** (conceitual, sem código) e
+**Prioridade** (Alta/Média/Baixa).
+
+O consolidado do `review-manager` sai em `docs/reviews/review-AAAA-MM-DD.md`, com um resumo
+executivo no terminal, e sua última seção — *Próximos Passos* — propõe como organizar as melhorias
+em uma nova change do OpenSpec. É assim que a revisão final **realimenta** o ciclo: o relatório vira
+a base do próximo `/opsx:propose`.
+
+> **Os subagentes da camada 2 são específicos de stack.** Como estão escritos hoje,
+> `3-create-agents.md` e `6-final-review.md` pressupõem **Blazor Web App, .NET 10, Bootstrap,
+> JSInterop e prerendering** — vieram de um projeto ASP.NET Core. Em um projeto de outra stack,
+> `review-blazor` deve ser substituído pelo equivalente (`review-react`, `review-django`, …) e os
+> critérios de `review-performance` e `review-ui` ajustados antes de gerar os agentes. A **camada 1
+> é agnóstica de stack** e funciona em qualquer projeto. Vale a mesma ressalva do `sdd-reviewer`
+> versionado no template: seu texto cita o projeto de origem (Copa2026), e o prompt do projeto novo
+> deve ser reescrito na primeira execução.
+
 ## Manutenção do ambiente
 
 ```bash
@@ -368,8 +470,11 @@ Não fazem parte da primeira versão:
 
 - Estrutura documental de referência (`docs/domain/`, `docs/standards/`, `docs/guidelines/`), além
   de `src/`, `test/` e `STATUS.md`.
-- Subagentes de review em `.claude/agents/`, a partir de
-  [`prompts/3-create-agents.md`](prompts/3-create-agents.md).
+- Generalizar os subagentes de review da camada 2
+  ([`prompts/3-create-agents.md`](prompts/3-create-agents.md) e
+  [`prompts/6-final-review.md`](prompts/6-final-review.md)), hoje presos à stack Blazor/.NET, e
+  neutralizar a referência ao projeto de origem no `sdd-reviewer.md`.
+- Escrever o `prompts/5-new-feature-script.md`, hoje vazio.
 - Preenchimento automático do `.env` da raiz pelo instalador, hoje manual por conter segredo.
 - Suporte multiarquitetura (`arm64`) na imagem de desenvolvimento.
 - Testes automatizados do bootstrap (`install.sh` / `install.ps1`) em CI — hoje o `install.ps1` é

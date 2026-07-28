@@ -14,11 +14,13 @@ Orientações para o Claude Code trabalhar neste repositório.
 
 `devc-debian-claude` é um **template (esqueleto) de projeto**, não uma aplicação. Ele entrega um
 Devcontainer Debian com Claude Code, ferramentas de desenvolvimento e um catálogo de skills/plugins,
-mais um **instalador de um comando** que materializa um projeto novo a partir dele.
+mais um **instalador de um comando** que materializa um projeto novo a partir dele — e a **trilha de
+revisão SDD** (§5.1) que se usa dentro do projeto gerado.
 
 Não há código de aplicação, não há build, não há suíte de testes automatizados
 (testes dos instaladores estão explicitamente fora de escopo — PRD §9).
-O "produto" são: os scripts de bootstrap, a imagem de desenvolvimento e a configuração do devcontainer.
+O "produto" são: os scripts de bootstrap, a imagem de desenvolvimento, a configuração do
+devcontainer e os prompts/subagentes de revisão.
 
 **Idioma:** todo conteúdo do repositório (comentários, mensagens de script, documentação) é em
 **português**. Mantenha assim.
@@ -60,10 +62,11 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 | `scripts/install-skill.sh` | `[i]` | Catálogo de skills (`npx skills add ...`) — catálogo, não executável de uma vez |
 | `scripts/plugins.sh` | `[i]` | Catálogo de plugins/MCPs sob demanda |
 | `scripts/clean.sh` | `[i]` | Remove container e volumes deste devcontainer |
-| `prompts/` | `[i]` | `1-create-prd.md`, `2-create-claude.md`, `3-create-agents.md`, `4-create-readme.md` — prompts numerados na ordem de uso |
+| `prompts/` | `[i]` | `1-create-prd.md`, `2-create-claude.md`, `3-create-agents.md`, `4-create-readme.md`, `5-new-feature-script.md` (vazio), `6-final-review.md` — numerados na ordem de uso |
 | `skills-lock.json` | `[i]` | Lock (origem/caminho/hash) das skills instaladas |
 | `.claude/settings.json` | `[i]` | Hooks (bell em `Stop` e `Notification`) |
-| `.claude/agents/` | `[i]` | Subagentes; hoje só `sdd-reviewer.md` |
+| `.claude/agents/` | `[i]` | Subagentes; hoje só `sdd-reviewer.md` (camada 1 do RF12) |
+| `.claude/skills/sdd-review/` | `[t]` | Pasta real (não symlink): processo de revisão de change OpenSpec |
 | `README.md` | `[t]` | Documentação pública do template; não vai para o projeto gerado |
 | `.claude/PRD.md` | `[t]` | Este PRD; no projeto gerado vira um **esqueleto novo** escrito pelo instalador |
 | `.claude/settings.local.json` | `[g]` | `skillOverrides` — skills desativadas neste projeto |
@@ -148,6 +151,42 @@ versionada**, só não é ativada. Plugins/MCPs **nunca** são instalados automa
 
 ---
 
+## 5.1 Trilha de revisão SDD (PRD RF12)
+
+Duas camadas independentes, em momentos diferentes do ciclo. **Nenhuma das duas escreve arquivos** —
+o produto de ambas é um relatório. Ao editar qualquer peça, preserve essa propriedade.
+
+**Camada 1 — antes do Apply.** Skill `sdd-review` (o processo, em `.claude/skills/sdd-review/`) +
+subagente `sdd-reviewer` (o executor, em `.claude/agents/`). Posição obrigatória no ciclo:
+**depois do `/opsx:propose`, antes do `/opsx:apply`**. Revisa os artefatos da change
+(`proposal.md`, `design.md`, `tasks.md`, `specs/`) mais o `CLAUDE.md` do projeto, em seis etapas —
+Consistência, Escopo, Arquitetura, Implementação, Banco de Dados, Riscos — e conclui com um veredito
+binário: *Pronto para Apply* ou *Requer ajustes antes do Apply*.
+
+O `sdd-reviewer` declara `tools: Read, Grep, Glob` e `disallowed-tools: Write, Edit, NotebookEdit,
+Bash`. Isso **não é preferência de estilo**: um revisor que corrige deixa de ser controle
+independente. Não adicione ferramenta de escrita a esse agente, nem afrouxe a instrução de que
+mesmo erros triviais são apenas reportados, com localização exata.
+
+Mexeu na skill? Confira se o `sdd-reviewer.md` continua coerente — ele referencia as seis etapas por
+nome e o formato de saída em quatro seções.
+
+**Camada 2 — entre ciclos.** Subagentes `review-architect`, `review-performance`, `review-blazor`,
+`review-ui` e `review-manager`, **gerados no projeto destino** por `prompts/3-create-agents.md` e
+acionados por `prompts/6-final-review.md`; não são versionados aqui. Revisam o projeto implementado
+muito além do código (arquitetura, desempenho, ciclo de vida do framework, UX, acessibilidade). O
+`review-manager` só consolida — não analisa código e **não reinterpreta** as conclusões dos
+especialistas — e grava `docs/reviews/review-AAAA-MM-DD.md`, cuja seção *Próximos Passos* alimenta
+o `/opsx:propose` seguinte.
+
+Ao editar `3-create-agents.md`, respeite o que o próprio prompt exige: estrutura fixa
+(`name`/`description` + Objetivo, Responsabilidades, Critérios de análise, Formato da resposta),
+sem simplificar instrução, sem eliminar informação e sem reorganizar. Os dois prompts se espelham na
+lista de especialistas e nas premissas de stack — **mudança em um exige a mudança equivalente no
+outro**, como acontece com os instaladores.
+
+---
+
 ## 6. Estado da conformidade com o PRD
 
 Verificado em 2026-07-28.
@@ -175,12 +214,19 @@ Verificado em 2026-07-28.
    mudança de ordem `USER`/`ENV`, ainda não validada por build. O container em execução ainda é o
    antigo, onde `bun` e `claude-usage` **não** respondem no PATH — vale um rebuild para confirmar.
 3. **Esqueleto de `.claude/PRD.md`** (gerado pelos instaladores) ainda menciona subagentes
-   `plan-dev`, `run-dev`, `test-ops`, `plan-ops` e `run-ops`, que não existem. Hoje
-   `.claude/agents/` contém apenas `sdd-reviewer.md` (veio com a skill `sdd-review`), e
-   `prompts/3-create-agents.md` prevê um terceiro conjunto (`review-*`) — PRD §11.
+   `plan-dev`, `run-dev`, `test-ops`, `plan-ops` e `run-ops`, que não existem. O ciclo real é o do
+   RF12: `sdd-reviewer` antes do Apply, `review-*` entre ciclos. Corrigir o texto gerado nos dois
+   instaladores.
 4. **URLs de download desalinhadas**: os cabeçalhos de `install.sh`/`install.ps1` ainda citam
    `.../main/install.sh` na raiz, enquanto os arquivos vivem em `scripts/`. O `README.md` já usa
    o caminho correto (`.../main/scripts/install.sh`).
+5. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
+   pressupõem Blazor Web App, .NET 10, Bootstrap, JSInterop e prerendering. Falta uma variante
+   agnóstica em que o especialista de framework siga a stack do projeto. A camada 1 já é agnóstica.
+6. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
+   descrição do papel, embora o processo que ele executa não dependa de stack.
+7. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
+   escrito. Os demais prompts numerados estão completos.
 
 ---
 
