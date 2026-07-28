@@ -4,7 +4,7 @@
   "name": "DevC Claude Code",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/workspace",
+  "workspaceFolder": "/code/pessoal/devc-debian-claude",
   "shutdownAction": "none",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}

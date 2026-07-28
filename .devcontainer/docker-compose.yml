@@ -10,5 +10,5 @@ services:
       - TZ=America/Sao_Paulo
     restart: unless-stopped
     volumes:
-      - ..:/workspace:cached
+      - ..:${PROJECT_FOLDER}:cached
     command: sleep infinity
