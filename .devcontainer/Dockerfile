@@ -32,6 +32,9 @@ RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
 # --- uv (gerenciador de dependências/ambiente Python do projeto) --------------
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
+# --- ccusage (CLI de monitoramento de consumo de tokens Claude, via npm) ------
+RUN npm install -g ccusage
+
 # --- Usuário não-root (UID/GID 1000, casa com o fallback do docker-compose) ---
 RUN groupadd --gid 1000 app \
     && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash app \
@@ -48,5 +51,12 @@ RUN mkdir -p /home/app/.claude && chown -R app:app /home/app/.claude
 # Volta para o usuário padrão não-root do container por segurança
 USER app
 
-WORKDIR /workspace
+# --- Bun (runtime/gerenciador JS) ----------------------------------------------
+RUN curl -fsSL https://bun.com/install | bash
+ENV PATH="/home/app/.bun/bin:${PATH}"
 
+# --- claude-usage (CLI de monitoramento de consumo de tokens, via uv tool) ----
+RUN uv tool install git+https://github.com/phuryn/claude-usage
+ENV PATH="/home/app/.local/bin:${PATH}"
+
+WORKDIR /workspace
