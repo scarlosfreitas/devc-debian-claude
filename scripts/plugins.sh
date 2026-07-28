@@ -16,9 +16,3 @@ claude plugin install context-mode@context-mode --scope user
 # Playwright CLI (browsers + testes; sem MCP)
 npm install -g @playwright/cli@latest
 playwright install --with-deps
-
-# Interface Design Skill 
-npx skills add https://github.com/dammyjay93/interface-design --skill interface-design
-
-# Napkin
-git clone https://github.com/blader/napkin.git ~/.claude/skills/napkin

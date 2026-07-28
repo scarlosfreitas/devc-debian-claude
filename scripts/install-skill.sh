@@ -22,3 +22,9 @@ npx skills add https://github.com/intellectronica/agent-skills --skill context7
 
 # Navegação
 npx skills add https://github.com/remorses/playwriter --skill playwriter
+
+# Interface Design Skill 
+npx skills add https://github.com/dammyjay93/interface-design --skill interface-design
+
+# Napkin
+git clone https://github.com/blader/napkin.git ~/.claude/skills/napkin

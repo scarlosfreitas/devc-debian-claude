@@ -29,11 +29,17 @@ RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
     && apt-get install -y --no-install-recommends google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
+# --- GitHub CLI (gh) -----------------------------------------------------------
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gh \
+    && rm -rf /var/lib/apt/lists/*
+
 # --- uv (gerenciador de dependências/ambiente Python do projeto) --------------
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-
-# --- ccusage (CLI de monitoramento de consumo de tokens Claude, via npm) ------
-RUN npm install -g ccusage
 
 # --- Usuário não-root (UID/GID 1000, casa com o fallback do docker-compose) ---
 RUN groupadd --gid 1000 app \
@@ -48,8 +54,8 @@ RUN groupadd --gid 1000 app \
 # usuário app fica sem permissão de escrita.
 RUN mkdir -p /home/app/.claude && chown -R app:app /home/app/.claude
 
-# Volta para o usuário padrão não-root do container por segurança
-USER app
+# --- ccusage (CLI de monitoramento de consumo de tokens Claude, via npm) ------
+RUN npm install -g ccusage
 
 # --- Bun (runtime/gerenciador JS) ----------------------------------------------
 RUN curl -fsSL https://bun.com/install | bash
@@ -58,5 +64,8 @@ ENV PATH="/home/app/.bun/bin:${PATH}"
 # --- claude-usage (CLI de monitoramento de consumo de tokens, via uv tool) ----
 RUN uv tool install git+https://github.com/phuryn/claude-usage
 ENV PATH="/home/app/.local/bin:${PATH}"
+
+# Volta para o usuário padrão não-root do container por segurança
+USER app
 
 WORKDIR /workspace
