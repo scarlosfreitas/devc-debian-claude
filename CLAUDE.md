@@ -68,7 +68,7 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 | `.claude/agents/` | `[i]` | Subagentes; hoje só `sdd-reviewer.md` (camada 1 do RF12) |
 | `.claude/skills/sdd-review/` | `[t]` | Pasta real (não symlink): processo de revisão de change OpenSpec |
 | `README.md` | `[t]` | Documentação pública do template; não vai para o projeto gerado |
-| `.claude/PRD.md` | `[t]` | Este PRD; no projeto gerado vira um **esqueleto novo** escrito pelo instalador |
+| `.claude/PRD.md` | `[t]` | Este PRD; **não** vai para o projeto gerado, nem como esqueleto — o usuário escreve o seu (`prompts/1-create-prd.md`) |
 | `.claude/settings.local.json` | `[g]` | `skillOverrides` — skills desativadas neste projeto |
 | `.claude/skills/` | `[t]` | Symlinks versionados para `../../.agents/skills/*`; descartados na instalação (senão ficariam quebrados) |
 | `.agents/skills/` | `[t]` | Skills materializadas; **não** vai para o projeto gerado |
@@ -76,9 +76,10 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 
 **Lista fechada do RF6** — o projeto gerado recebe **apenas**: `.claude/` (exceto `settings.local.json`,
 `PRD.md` e os symlinks de `skills/`), `.devcontainer/`, `prompts/`, `scripts/`, `.env.example`,
-`.gitignore`, `skills-lock.json` — mais o `.claude/PRD.md` esqueleto. Nada além disso. Ao mexer nos
-instaladores, verifique essa lista: ela é implementada como cópia item a item (nunca "copia tudo e
-apaga depois") e é validada por inteiro antes de a primeira cópia acontecer.
+`.gitignore`, `skills-lock.json`. Nada além disso — em especial, `.claude/PRD.md` **não** é
+regerado como esqueleto; o projeto nasce sem PRD. Ao mexer nos instaladores, verifique essa lista:
+ela é implementada como cópia item a item (nunca "copia tudo e apaga depois") e é validada por
+inteiro antes de a primeira cópia acontecer.
 
 ---
 
@@ -112,8 +113,9 @@ for c in node npm uv bun git gh sudo ccusage claude-usage; do command -v $c; don
 **toda mudança em um exige a mudança equivalente no outro**. Ambos devem: abortar em pasta não vazia
 sem `--yes`/`-Yes`, funcionar sem TTY, clonar com `--depth 1`, apagar o `.git` do template,
 respeitar a lista fechada do RF6, gravar `PROJECT_FOLDER`/`workspaceFolder` com o `pwd` da instalação,
-derivar `DOCKER_IMAGE_NAME`/`CONTAINER_NAME` do nome do projeto normalizado, gerar o `.claude/PRD.md`
-esqueleto e rodar `git init` (+ commit, salvo `--no-commit`).
+derivar `DOCKER_IMAGE_NAME`/`CONTAINER_NAME` do nome do projeto normalizado e rodar `git init` (+
+commit, salvo `--no-commit`). Nenhum dos dois gera `.claude/PRD.md`: o `.claude/PRD.md` do template
+é removido junto com `settings.local.json`, e não é substituído por nada.
 
 Normalização do nome (RF2): espaços → `-`, tudo minúsculo (a `slugify` também remove acentos e
 outros caracteres inválidos em nome de container). `Meu Projeto Novo` → `meu-projeto-novo`, usado
@@ -213,19 +215,15 @@ Verificado em 2026-07-28.
 2. **Dockerfile não foi reconstruído**: não há Docker disponível aqui. A correção do RF7 é uma
    mudança de ordem `USER`/`ENV`, ainda não validada por build. O container em execução ainda é o
    antigo, onde `bun` e `claude-usage` **não** respondem no PATH — vale um rebuild para confirmar.
-3. **Esqueleto de `.claude/PRD.md`** (gerado pelos instaladores) ainda menciona subagentes
-   `plan-dev`, `run-dev`, `test-ops`, `plan-ops` e `run-ops`, que não existem. O ciclo real é o do
-   RF12: `sdd-reviewer` antes do Apply, `review-*` entre ciclos. Corrigir o texto gerado nos dois
-   instaladores.
-4. **URLs de download desalinhadas**: os cabeçalhos de `install.sh`/`install.ps1` ainda citam
+3. **URLs de download desalinhadas**: os cabeçalhos de `install.sh`/`install.ps1` ainda citam
    `.../main/install.sh` na raiz, enquanto os arquivos vivem em `scripts/`. O `README.md` já usa
    o caminho correto (`.../main/scripts/install.sh`).
-5. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
+4. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
    pressupõem Blazor Web App, .NET 10, Bootstrap, JSInterop e prerendering. Falta uma variante
    agnóstica em que o especialista de framework siga a stack do projeto. A camada 1 já é agnóstica.
-6. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
+5. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
    descrição do papel, embora o processo que ele executa não dependa de stack.
-7. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
+6. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
    escrito. Os demais prompts numerados estão completos.
 
 ---

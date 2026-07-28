@@ -161,7 +161,7 @@ devc-debian-claude/
     .claude/                    [i] exceto settings.local.json, PRD.md e skills/
         settings.json           [i] hooks (bell ao terminar/notificar)
         agents/                 [i] subagentes; hoje só sdd-reviewer.md (revisão antes do Apply)
-        PRD.md                  [t] fonte de verdade do produto; no projeto gerado é um esqueleto novo
+        PRD.md                  [t] fonte de verdade do produto; não copiado nem regerado no projeto gerado
         settings.local.json     [g] skills desativadas neste projeto (não versionado)
         skills/                 [t] symlinks para ../../.agents/skills/*
             sdd-review/         < processo de revisão de change OpenSpec (pasta real, não symlink)
@@ -188,9 +188,10 @@ devc-debian-claude/
     README.md                   [t] este arquivo
 ```
 
-O projeto gerado recebe **apenas** os itens `[i]` — mais o `.claude/PRD.md` esqueleto criado pelo
-instalador. É uma lista fechada: `README.md`, `CLAUDE.md`, o PRD do template, o
-`settings.local.json` e o diretório `.agents/skills/` ficam de fora.
+O projeto gerado recebe **apenas** os itens `[i]`. É uma lista fechada: `README.md`, `CLAUDE.md`, o
+`.claude/PRD.md` do template, o `settings.local.json` e o diretório `.agents/skills/` ficam de
+fora. O `.claude/PRD.md` **não** é regerado como esqueleto — o projeto nasce sem PRD, a ser escrito
+pelo usuário a partir de [`prompts/1-create-prd.md`](prompts/1-create-prd.md).
 
 > `prompts/5-new-feature-script.md` existe mas está **vazio**: o roteiro de nova funcionalidade
 > ainda não foi escrito. Os demais prompts numerados estão completos.
@@ -250,7 +251,8 @@ irm https://raw.githubusercontent.com/scarlosfreitas/devc-debian-claude/main/scr
 
 O instalador pergunta três coisas — **nome do projeto**, **descrição** e **caminho do projeto**
 (padrão: a pasta atual) — e então gera o `.devcontainer/.env`, personaliza o `devcontainer.json`,
-cria o esqueleto de `.claude/PRD.md`, roda `git init` e faz o commit inicial.
+roda `git init` e faz o commit inicial. O projeto nasce **sem** `.claude/PRD.md`: escreva o seu a
+partir de [`prompts/1-create-prd.md`](prompts/1-create-prd.md).
 
 <details>
 <summary>Modo não-interativo e opções</summary>

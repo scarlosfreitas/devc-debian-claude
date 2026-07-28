@@ -133,8 +133,10 @@ try {
     Copy-Item -Path (Join-Path $TmpDir $f) -Destination (Join-Path $Dir $f) -Force
   }
 
-  # .claude/ é copiado exceto estes dois: o PRD é regerado como esqueleto mais
-  # abaixo, e o settings.local.json do template desativaria skills no projeto novo.
+  # .claude/ é copiado exceto estes dois: o PRD.md é o do template (produto
+  # devc-debian-claude), não faz sentido no projeto novo, e não é substituído
+  # por nenhum esqueleto — o usuário escreve o seu (prompts/1-create-prd.md).
+  # O settings.local.json do template desativaria skills no projeto novo.
   Remove-Item -Force -ErrorAction SilentlyContinue `
     -Path (Join-Path $Dir '.claude/PRD.md'), (Join-Path $Dir '.claude/settings.local.json')
 
@@ -228,60 +230,10 @@ $envLines = Get-Content -Path $envExamplePath | ForEach-Object {
 if (-not $seenEnvFolder) { $envLines += "PROJECT_FOLDER=$ProjectFolder" }
 ($envLines -join "`n") + "`n" | Set-Content -Path $envPath -Encoding utf8 -NoNewline
 
-# --- esqueleto de PRD do projeto-alvo ---------------------------------------
-
-Write-Step "gerando .claude/PRD.md (esqueleto do projeto)..."
-$claudeDir = Join-Path $Dir ".claude"
-if (-not (Test-Path $claudeDir)) { New-Item -ItemType Directory -Force -Path $claudeDir | Out-Null }
-$prdPath = Join-Path $claudeDir "PRD.md"
-$prdBody = @'
-# PRD — __PROJECT_NAME__
-
-> Documento de produto (fonte de verdade) do **seu projeto**, gerado a partir do template
-> [devc-debian-claude](https://github.com/scarlosfreitas/devc-debian-claude). Os subagentes em
-> `.claude/agents/` (`plan-dev`, `run-dev`, `test-ops`, `plan-ops`, `run-ops`) tratam este
-> arquivo como fonte de verdade — preencha-o antes de acionar o ciclo `plan -> run -> test`.
->
-> Define **o quê** e **o porquê**; não descreve **como** o código é feito (isso é
-> `docs/standards/`) nem regra de negócio (isso é `docs/domain/`). Apague este aviso conforme
-> for preenchendo.
-
-## 1. Visão geral e propósito
-
-O que este projeto é, o problema que resolve e o resultado esperado.
-
-## 2. Público-alvo e casos de uso
-
-Quem usa, e os principais cenários de uso.
-
-## 3. Estado atual / contexto técnico
-
-Stack, dependências, integrações e o que já existe (se for um projeto em andamento).
-
-## 4. Requisitos funcionais
-
-Lista de funcionalidades, uma seção por funcionalidade (RF1, RF2, ...), com comportamento
-esperado e casos de borda relevantes o suficiente para virarem testes.
-
-## 5. Requisitos não-funcionais
-
-Performance, segurança, portabilidade, garantias de integridade de dados, etc.
-
-## 6. Fora de escopo
-
-O que este projeto explicitamente não vai fazer (por ora).
-
-## 7. Critérios de aceite
-
-Checklist verificável do que precisa ser verdade para considerar o projeto (ou uma
-funcionalidade) pronto.
-'@
-$prdBody = $prdBody -replace '__PROJECT_NAME__', $Name
-Set-Content -Path $prdPath -Value $prdBody -Encoding utf8
-
-# Nada a remover aqui: a cópia acima já é a lista fechada do RF6 — os itens que
-# só fazem sentido no template nunca chegam ao projeto gerado. Os instaladores
-# em scripts/ são copiados de propósito (scripts/ vai inteiro).
+# Nada a gerar aqui: a lista fechada do RF6 não inclui .claude/PRD.md — o
+# projeto novo nasce sem PRD, a ser escrito pelo usuário (ver prompts/1-create-prd.md).
+# Os itens que só fazem sentido no template nunca chegam ao projeto gerado.
+# Os instaladores em scripts/ são copiados de propósito (scripts/ vai inteiro).
 
 # --- git init ------------------------------------------------------------------
 
@@ -304,4 +256,4 @@ Write-Host "  1. Copie .env.example para .env e preencha suas credenciais git."
 Write-Host "  2. Abra a pasta no VS Code."
 Write-Host "  3. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
 Write-Host "  4. Faça login no Claude Code (chat e terminal)."
-Write-Host "  5. Preencha .claude/PRD.md."
+Write-Host "  5. Escreva .claude/PRD.md (ver prompts/1-create-prd.md)."

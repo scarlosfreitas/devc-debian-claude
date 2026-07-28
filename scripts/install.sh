@@ -134,8 +134,10 @@ for f in .env.example .gitignore skills-lock.json; do
   cp -a "$TMP_DIR/$f" "$TARGET_DIR/$f"
 done
 
-# .claude/ é copiado exceto estes dois: o PRD é regerado como esqueleto mais
-# abaixo, e o settings.local.json do template desativaria skills no projeto novo.
+# .claude/ é copiado exceto estes dois: o PRD.md é o do template (produto
+# devc-debian-claude), não faz sentido no projeto novo, e não é substituído
+# por nenhum esqueleto — o usuário escreve o seu (prompts/1-create-prd.md).
+# O settings.local.json do template desativaria skills no projeto novo.
 rm -f "$TARGET_DIR/.claude/PRD.md" "$TARGET_DIR/.claude/settings.local.json"
 
 # .claude/skills/ é um conjunto de symlinks para .agents/skills/, que NÃO é
@@ -252,56 +254,10 @@ rm -f .devcontainer/.env.bak
 grep -q "^PROJECT_FOLDER=" .devcontainer/.env \
   || printf '\nPROJECT_FOLDER=%s\n' "$PROJECT_FOLDER" >> .devcontainer/.env
 
-# --- esqueleto de PRD do projeto-alvo -------------------------------------
-
-log "gerando .claude/PRD.md (esqueleto do projeto)..."
-mkdir -p .claude
-cat > .claude/PRD.md <<EOF
-# PRD — $PROJECT_NAME
-
-> Documento de produto (fonte de verdade) do **seu projeto**, gerado a partir do template
-> [devc-debian-claude](https://github.com/scarlosfreitas/devc-debian-claude). Os subagentes em
-> \`.claude/agents/\` (\`plan-dev\`, \`run-dev\`, \`test-ops\`, \`plan-ops\`, \`run-ops\`) tratam este
-> arquivo como fonte de verdade — preencha-o antes de acionar o ciclo \`plan → run → test\`.
->
-> Define **o quê** e **o porquê**; não descreve **como** o código é feito (isso é
-> \`docs/standards/\`) nem regra de negócio (isso é \`docs/domain/\`). Apague este aviso conforme
-> for preenchendo.
-
-## 1. Visão geral e propósito
-
-O que este projeto é, o problema que resolve e o resultado esperado.
-
-## 2. Público-alvo e casos de uso
-
-Quem usa, e os principais cenários de uso.
-
-## 3. Estado atual / contexto técnico
-
-Stack, dependências, integrações e o que já existe (se for um projeto em andamento).
-
-## 4. Requisitos funcionais
-
-Lista de funcionalidades, uma seção por funcionalidade (RF1, RF2, ...), com comportamento
-esperado e casos de borda relevantes o suficiente para virarem testes.
-
-## 5. Requisitos não-funcionais
-
-Performance, segurança, portabilidade, garantias de integridade de dados, etc.
-
-## 6. Fora de escopo
-
-O que este projeto explicitamente não vai fazer (por ora).
-
-## 7. Critérios de aceite
-
-Checklist verificável do que precisa ser verdade para considerar o projeto (ou uma
-funcionalidade) pronto.
-EOF
-
-# Nada a remover aqui: a cópia acima já é a lista fechada do RF6 — os itens que
-# só fazem sentido no template nunca chegam ao projeto gerado. Os instaladores
-# em scripts/ são copiados de propósito (scripts/ vai inteiro).
+# Nada a gerar aqui: a lista fechada do RF6 não inclui .claude/PRD.md — o
+# projeto novo nasce sem PRD, a ser escrito pelo usuário (ver prompts/1-create-prd.md).
+# Os itens que só fazem sentido no template nunca chegam ao projeto gerado.
+# Os instaladores em scripts/ são copiados de propósito (scripts/ vai inteiro).
 
 # --- git init --------------------------------------------------------------
 
@@ -323,4 +279,4 @@ echo "  1. Copie .env.example para .env e preencha suas credenciais git."
 echo "  2. Abra a pasta no VS Code."
 echo "  3. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
 echo "  4. Faça login no Claude Code (chat e terminal)."
-echo "  5. Preencha .claude/PRD.md."
+echo "  5. Escreva .claude/PRD.md (ver prompts/1-create-prd.md)."

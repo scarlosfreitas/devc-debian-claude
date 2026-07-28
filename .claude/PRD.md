@@ -76,8 +76,9 @@ O produto não tem interface gráfica; a "navegação" é a sequência de comand
    devcontainer/container — não há pergunta separada para o nome do container.
 4. O instalador baixa o kit, remove o `.git` do template, copia **apenas** os itens da lista de
    instalação (RF6), reescreve `.devcontainer/devcontainer.json`, gera `.devcontainer/.env` a
-   partir do `.devcontainer/.env.example`, gera o esqueleto de `.claude/PRD.md`, roda `git init` e
-   cria o commit inicial.
+   partir do `.devcontainer/.env.example`, roda `git init` e cria o commit inicial. O
+   `.claude/PRD.md` **não** é copiado nem regerado — o projeto nasce sem PRD, a ser escrito pelo
+   usuário (`prompts/1-create-prd.md`).
 5. O usuário preenche o `.env` da raiz com suas credenciais git (a partir de `.env.example`).
 6. O usuário abre a pasta no VS Code e escolhe **Dev Containers: Reopen in Container**.
 7. O `postCreate.sh` recria, dentro do container, as credenciais git (`~/.git-credentials`) e o
@@ -220,12 +221,16 @@ O instalador **SHALL** copiar para o projeto gerado **apenas** os itens abaixo, 
 
 * **Cenário: projeto recém-gerado**
   * **WHEN** a instalação termina
-  * **THEN** existem exatamente os itens da lista acima, mais o `.claude/PRD.md` esqueleto gerado
-    pelo instalador com o nome do projeto.
+  * **THEN** existem exatamente os itens da lista acima, e nada além disso.
 * **Cenário: itens não instalados**
   * **WHEN** a instalação termina
   * **THEN** não existem no projeto gerado o `README.md` do template, o `.claude/PRD.md` do
     template, o `.claude/settings.local.json` do template nem o diretório `.agents/skills/`.
+* **Cenário: PRD não é regerado**
+  * **WHEN** a instalação termina
+  * **THEN** `.claude/PRD.md` **não existe** no projeto gerado — não é copiado o do template, e o
+    instalador **não** cria nenhum esqueleto em seu lugar. O PRD do projeto novo é escrito pelo
+    usuário, a partir de `prompts/1-create-prd.md`.
 * **Cenário: instaladores no projeto gerado**
   * **WHEN** a instalação termina
   * **THEN** `scripts/` está presente por inteiro, incluindo `install.sh` e `install.ps1`, por
@@ -428,7 +433,7 @@ devc-debian-claude/
         .env                    [g] gerado pelo instalador
     .claude/                    [i] exceto settings.local.json, PRD.md e skills/
         settings.json           [i] hooks (bell ao terminar/notificar)
-        PRD.md                  [t] este documento; no projeto gerado é um esqueleto novo
+        PRD.md                  [t] este documento; não copiado nem regerado no projeto gerado
         settings.local.json     [g] skills desativadas neste projeto (não versionado)
         skills/                 [t] symlinks para ../../.agents/skills/* (descartados na instalação)
             sdd-review/         < pasta real (não symlink): processo de revisão de change OpenSpec
@@ -491,8 +496,7 @@ Não faz parte da primeira versão:
 * [ ] O projeto gerado **não** contém `README.md`, `CLAUDE.md`, `.claude/settings.local.json`,
       `.claude/skills/` nem `.agents/`.
 * [ ] `find <projeto> -xtype l` não retorna nenhum link simbólico quebrado.
-* [ ] O projeto gerado contém um `.claude/PRD.md` esqueleto com o nome do projeto, e não o PRD do
-      template.
+* [ ] `.claude/PRD.md` **não existe** no projeto gerado — nem o do template, nem um esqueleto.
 * [ ] "Reopen in Container" sobe o container, e dentro dele o projeto está no mesmo caminho
       absoluto do host.
 * [ ] Dentro do container: `node`, `npm`, `uv`, `bun`, `git`, `gh`, `sudo`, `ccusage` e
@@ -529,9 +533,6 @@ Não faz parte da primeira versão:
   ASP.NET Core + Blazor Server) na descrição do papel, embora o processo de revisão em si seja
   agnóstico de stack.
 * Escrita do `prompts/5-new-feature-script.md`, hoje vazio.
-* Correção do esqueleto de `.claude/PRD.md` gerado pelos instaladores, que ainda menciona os
-  subagentes `plan-dev`, `run-dev`, `test-ops`, `plan-ops` e `run-ops` — inexistentes, e substituídos
-  pela trilha do RF12.
 * Preenchimento automático do `.env` da raiz pelo instalador, hoje manual por conter segredo.
 * Suporte multiarquitetura (`arm64`) na imagem de desenvolvimento.
 * Testes automatizados do bootstrap (`install.sh`/`install.ps1`) em CI.
