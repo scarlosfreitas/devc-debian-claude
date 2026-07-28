@@ -83,6 +83,7 @@ já versionado; e times que precisam de ambiente reprodutível entre Linux, macO
 | Git/GitHub | **git**, **GitHub CLI (`gh`)** | Versionamento e automação do GitHub |
 | Navegador | **Google Chrome** | Automação de navegador (ex.: skill `playwriter`) |
 | Observabilidade de uso | **ccusage** (npm), **claude-usage** (uv tool) | Monitoramento de consumo de tokens |
+| Spec-driven development | **OpenSpec** (npm, `@fission-ai/openspec`) | Comandos `/opsx:propose` / `/opsx:apply` |
 | Utilidades | `sudo`, `zip`, `unzip`, `xz-utils`, locale `C.UTF-8` | Suporte geral e acentuação correta |
 | Bootstrap | **Bash** (`install.sh`) e **PowerShell** (`install.ps1`) | Instaladores equivalentes |
 
@@ -206,7 +207,7 @@ pelo usuário a partir de [`prompts/1-create-prd.md`](prompts/1-create-prd.md).
 | RF4 | **Geração do `.devcontainer/.env`** | Gera o `.env` a partir do `.env.example`, com `DOCKER_IMAGE_NAME`, `CONTAINER_NAME` e `PROJECT_FOLDER` |
 | RF5 | **Personalização do `devcontainer.json`** | Reescreve `name`, `description` e `workspaceFolder` preservando os comentários do arquivo (JSONC) |
 | RF6 | **Lista fechada de itens copiados** | Copia item a item, validando tudo antes de começar; descarta symlinks que ficariam quebrados |
-| RF7 | **Ambiente do container** | Debian bookworm-slim com Node LTS, npm, uv, Bun, git, gh, sudo, Chrome, ccusage, claude-usage, locale UTF-8 e usuário `app` |
+| RF7 | **Ambiente do container** | Debian bookworm-slim com Node LTS, npm, uv, Bun, git, gh, sudo, Chrome, ccusage, claude-usage, openspec, locale UTF-8 e usuário `app` |
 | RF8 | **Config do Claude Code compartilhada** | Bind mount de `~/.claude` do host e `CLAUDE_CONFIG_DIR=/home/app/.claude` |
 | RF9 | **Credenciais git e `GH_TOKEN`** | O `postCreate.sh` recria `~/.git-credentials` (`600`) e o `GH_TOKEN` a partir do `.env`; sem `.env`, pula com mensagem e termina com sucesso |
 | RF10 | **Catálogo sob demanda** | Skills versionadas e desativáveis por projeto; plugins/MCPs **nunca** instalados automaticamente |
@@ -316,7 +317,7 @@ cp .env.example .env
 whoami     # app
 locale     # C.UTF-8
 pwd        # o mesmo caminho absoluto do host
-for c in node npm uv bun git gh sudo ccusage claude-usage; do command -v "$c"; done
+for c in node npm uv bun git gh sudo ccusage claude-usage openspec; do command -v "$c"; done
 gh auth status
 ```
 

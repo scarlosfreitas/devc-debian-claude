@@ -52,7 +52,7 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 
 | Caminho | | Papel |
 |---|---|---|
-| `.devcontainer/Dockerfile` | `[i]` | Imagem `debian:bookworm-slim` + Node LTS/npm, `uv`, Bun, `git`, `gh`, `sudo`, zip/unzip/xz, Chrome, `ccusage`, `claude-usage`; usuário `app` (UID/GID 1000) |
+| `.devcontainer/Dockerfile` | `[i]` | Imagem `debian:bookworm-slim` + Node LTS/npm, `uv`, Bun, `git`, `gh`, `sudo`, zip/unzip/xz, Chrome, `ccusage`, `claude-usage`, `openspec`; usuário `app` (UID/GID 1000) |
 | `.devcontainer/docker-compose.yml` | `[i]` | Serviço `app`; bind `..:${PROJECT_FOLDER}:cached`; `user: ${HOST_UID:-1000}:${HOST_GID:-1000}` |
 | `.devcontainer/devcontainer.json` | `[i]` | Feature `claude-code`, bind de `~/.claude`, `CLAUDE_CONFIG_DIR`, locale, override do `credential.helper` |
 | `.devcontainer/postCreate.sh` | `[i]` | Recria `~/.git-credentials` e `GH_TOKEN` a partir do `.env` da raiz |
@@ -102,7 +102,7 @@ Validação manual do ambiente (critérios de aceite do PRD §10):
 ```bash
 whoami            # app
 locale            # C.UTF-8
-for c in node npm uv bun git gh sudo ccusage claude-usage; do command -v $c; done
+for c in node npm uv bun git gh sudo ccusage claude-usage openspec; do command -v $c; done
 ```
 
 ---
@@ -131,7 +131,7 @@ não passe por `ConvertFrom-Json`/`jq`, que apagam os comentários. Os valores e
 Cuidado com **`USER` e `$HOME` durante o build**: o que grava em `~` (Bun, `uv tool install`) precisa
 rodar **depois do `USER app`**, senão vai para `/root/...` e fica fora do PATH; e o `ENV PATH` precisa
 vir **antes** dessas instalações, senão elas avisam que o diretório não está no PATH. Instalação
-global via npm (`ccusage`) fica antes do `USER app`. `arch=amd64` é fixo (Chrome e `gh`);
+global via npm (`ccusage`, `openspec`) fica antes do `USER app`. `arch=amd64` é fixo (Chrome e `gh`);
 multiarquitetura está fora de escopo.
 
 **`devcontainer.json`** — o bloco `GIT_CONFIG_*` com `VALUE_0` **vazio** é intencional:

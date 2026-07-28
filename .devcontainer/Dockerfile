@@ -58,6 +58,10 @@ RUN mkdir -p /home/app/.claude && chown -R app:app /home/app/.claude
 # Instalação global (/usr/lib/node_modules + /usr/bin), ainda como root.
 RUN npm install -g ccusage
 
+# --- OpenSpec (CLI de spec-driven development, comandos /opsx:*) --------------
+# Instalação global, ainda como root.
+RUN npm install -g @fission-ai/openspec
+
 # PATH do usuário app. Declarado ANTES das instalações abaixo porque tanto o
 # instalador do Bun quanto o "uv tool install" avisam/erram quando o diretório
 # de destino não está no PATH.
