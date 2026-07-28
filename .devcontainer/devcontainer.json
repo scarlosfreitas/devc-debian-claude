@@ -22,9 +22,17 @@
     // Dev Containers injeta seu próprio credential.helper (proxy para o host)
     // em /etc/gitconfig e ~/.gitconfig, que quebra o push/commit no container
     // pois não há UI para completar aquele fluxo de autenticação.
-    "GIT_CONFIG_COUNT": "1",
+    //
+    // credential.helper é CUMULATIVO: declarar "store" apenas o acrescenta ao
+    // fim da lista, então os helpers do Dev Containers ainda rodam antes e
+    // falham com "fatal: could not read Username" (uma vez por helper) até o
+    // "store" responder. Por isso o VALUE_0 é vazio: um valor vazio zera a
+    // lista acumulada, e o VALUE_1 define "store" como único helper.
+    "GIT_CONFIG_COUNT": "2",
     "GIT_CONFIG_KEY_0": "credential.helper",
-    "GIT_CONFIG_VALUE_0": "store"
+    "GIT_CONFIG_VALUE_0": "",
+    "GIT_CONFIG_KEY_1": "credential.helper",
+    "GIT_CONFIG_VALUE_1": "store"
   },
   "customizations": {
     "vscode": {
