@@ -63,6 +63,8 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 | `prompts/` | `[i]` | `1-create-prd.md`, `2-create-claude.md`, `3-create-agents.md`, `4-create-readme.md` — prompts numerados na ordem de uso |
 | `skills-lock.json` | `[i]` | Lock (origem/caminho/hash) das skills instaladas |
 | `.claude/settings.json` | `[i]` | Hooks (bell em `Stop` e `Notification`) |
+| `.claude/agents/` | `[i]` | Subagentes; hoje só `sdd-reviewer.md` |
+| `README.md` | `[t]` | Documentação pública do template; não vai para o projeto gerado |
 | `.claude/PRD.md` | `[t]` | Este PRD; no projeto gerado vira um **esqueleto novo** escrito pelo instalador |
 | `.claude/settings.local.json` | `[g]` | `skillOverrides` — skills desativadas neste projeto |
 | `.claude/skills/` | `[t]` | Symlinks versionados para `../../.agents/skills/*`; descartados na instalação (senão ficariam quebrados) |
@@ -173,11 +175,12 @@ Verificado em 2026-07-28.
    mudança de ordem `USER`/`ENV`, ainda não validada por build. O container em execução ainda é o
    antigo, onde `bun` e `claude-usage` **não** respondem no PATH — vale um rebuild para confirmar.
 3. **Esqueleto de `.claude/PRD.md`** (gerado pelos instaladores) ainda menciona subagentes
-   `.claude/agents/` (`plan-dev`, `run-dev`, `test-ops`, `plan-ops`, `run-ops`) que não existem.
-   `prompts/3-create-agents.md` prevê outro conjunto (`review-*`) — PRD §11.
-4. **`README.md` não existe** no repositório; sua geração está prevista em PRD §11, via
-   `prompts/4-create-readme.md`. Os cabeçalhos dos instaladores ainda apontam para
-   `.../main/install.sh` (raiz), enquanto os arquivos vivem em `scripts/`.
+   `plan-dev`, `run-dev`, `test-ops`, `plan-ops` e `run-ops`, que não existem. Hoje
+   `.claude/agents/` contém apenas `sdd-reviewer.md` (veio com a skill `sdd-review`), e
+   `prompts/3-create-agents.md` prevê um terceiro conjunto (`review-*`) — PRD §11.
+4. **URLs de download desalinhadas**: os cabeçalhos de `install.sh`/`install.ps1` ainda citam
+   `.../main/install.sh` na raiz, enquanto os arquivos vivem em `scripts/`. O `README.md` já usa
+   o caminho correto (`.../main/scripts/install.sh`).
 
 ---
 

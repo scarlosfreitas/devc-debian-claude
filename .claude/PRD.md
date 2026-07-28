@@ -6,9 +6,9 @@
 > convertido em testes sem interpretação adicional.
 >
 > **Estado do documento:** artefatos que a documentação antiga do repositório citava mas que não
-> existem (`.claude/agents/`, `.claude/plans/`, `docs/`, `src/`, `test/`, `STATUS.md`, e o próprio
-> `README.md`) foram movidos para *Evoluções futuras* (§11). O que está nas seções 1 a 9
-> corresponde ao que existe hoje ou ao que foi explicitamente decidido.
+> existem (`.claude/agents/`, `.claude/plans/`, `docs/`, `src/`, `test/`, `STATUS.md`) foram
+> movidos para *Evoluções futuras* (§11). O que está nas seções 1 a 9 corresponde ao que existe
+> hoje ou ao que foi explicitamente decidido.
 
 ---
 
@@ -360,6 +360,7 @@ devc-debian-claude/
         PRD.md                  [t] este documento; no projeto gerado é um esqueleto novo
         settings.local.json     [g] skills desativadas neste projeto (não versionado)
         skills/                 [t] symlinks para ../../.agents/skills/* (descartados na instalação)
+        agents/                 [i] subagentes (hoje só sdd-reviewer.md, vindo da skill sdd-review)
     .agents/                    [t] não copiado para o projeto gerado
         skills/                 < skills instaladas via npx skills (uma pasta por skill)
     scripts/                    [i] diretório completo
@@ -378,10 +379,8 @@ devc-debian-claude/
     .gitignore                  [i]
     .env                        [g] credenciais git, preenchido pelo usuário
     CLAUDE.md                   [t] guia de trabalho no repositório; não copiado
+    README.md                   [t] documentação pública do template; não copiado
 ```
-
-> `README.md` não existe hoje no repositório; sua geração está prevista em *Evoluções futuras*
-> (§11), a partir de `prompts/3-create-readme.md`. Quando existir, será `[t]`.
 
 ---
 
@@ -437,11 +436,14 @@ Não faz parte da primeira versão:
 
 * Estrutura documental de referência: `docs/domain/`, `docs/standards/`, `docs/guidelines/`, além
   de `src/`, `test/` e `STATUS.md`.
-* Geração do `README.md` (a partir de `prompts/4-create-readme.md`), refletindo a estrutura real
-  (instaladores em `scripts/`, skills em `.agents/skills/`) e alinhando as URLs de download — hoje
-  os cabeçalhos dos instaladores ainda citam `.../main/install.sh` na raiz do repositório.
-* Subagentes de review em `.claude/agents/` (a partir de `prompts/3-create-agents.md`). Enquanto
-  não existirem, o esqueleto de `.claude/PRD.md` gerado pelo instalador ainda os menciona.
+* Alinhamento das URLs de download nos **cabeçalhos dos instaladores**, que ainda citam
+  `.../main/install.sh` na raiz do repositório, enquanto os arquivos vivem em `scripts/` — o
+  `README.md` já usa o caminho correto.
+* Subagentes de review (`review-architect`, `review-performance`, `review-blazor`, `review-ui`,
+  `review-manager`) em `.claude/agents/`, a partir de `prompts/3-create-agents.md` — o diretório já
+  existe, mas hoje contém apenas o `sdd-reviewer.md` instalado junto com a skill `sdd-review`.
+  Enquanto os subagentes não existirem, o esqueleto de `.claude/PRD.md` gerado pelo instalador
+  ainda menciona outro conjunto (`plan-dev`, `run-dev`, `test-ops`, `plan-ops`, `run-ops`).
 * Preenchimento automático do `.env` da raiz pelo instalador, hoje manual por conter segredo.
 * Suporte multiarquitetura (`arm64`) na imagem de desenvolvimento.
 * Testes automatizados do bootstrap (`install.sh`/`install.ps1`) em CI.
