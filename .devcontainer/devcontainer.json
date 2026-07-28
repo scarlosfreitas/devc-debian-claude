@@ -11,8 +11,7 @@
   },
   "remoteUser": "app",
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind", // config do claude
-    "source=${localEnv:HOME}/.claude/projects/devc-debian-claude,target=/home/app/.claude/projects/-workspace,type=bind,consistency=cached"
+    "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind" // config do claude
   ],
   "containerEnv": {    
     "CLAUDE_CONFIG_DIR": "/home/app/.claude", // isso garant que o .claude.json saia da Home par dentro do .claude
