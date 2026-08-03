@@ -641,10 +641,6 @@ Não faz parte da primeira versão:
 
 * Estrutura documental de referência: `docs/domain/`, `docs/standards/`, `docs/guidelines/`, além
   de `src/`, `test/` e `STATUS.md`.
-* **Atualização do `scripts/install.sh`/`install.ps1` para o novo nome/escopo do repositório**:
-  `REPO_URL` e as URLs de exemplo no cabeçalho ainda apontam para `devc-debian-claude` (nome e
-  repositório antigos); o script também não reflete a separação `.env`/`.secrets` (RF9) nem copia
-  `.secrets.example` para o projeto gerado.
 * **Mount do socket Docker.** O `Dockerfile` documenta que o cliente Docker fala com o daemon do
   host "pelo `/var/run/docker.sock` montado (ver `devcontainer.json`)", mas o `devcontainer.json`
   atual não declara esse mount nem `runArgs`/grupo `docker` do host — hoje o cliente Docker

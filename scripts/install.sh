@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# install.sh — bootstrap do devc-debian-claude (Linux/macOS)
+# install.sh — bootstrap do devcontainer-ia-cli (Linux/macOS)
 #
 # Baixa o kit deste repositório, remove o .git do template, pergunta os dados
 # do novo projeto (nome e descrição), reescreve os arquivos afetados e
@@ -11,15 +11,15 @@ set -euo pipefail
 # projeto (RF2 do PRD).
 #
 # Uso recomendado (downloader avulso, sem clonar manualmente):
-#   curl -fsSL https://raw.githubusercontent.com/scarlosfreitas/devc-debian-claude/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/scarlosfreitas/devcontainer-ai-cli/main/scripts/install.sh | bash
 #
 # Modo não-interativo:
-#   curl -fsSL .../install.sh | bash -s -- --name "Meu Projeto" \
+#   curl -fsSL .../scripts/install.sh | bash -s -- --name "Meu Projeto" \
 #     --description "Descrição do projeto" --yes
 #
 # Ver --help para todas as opções.
 
-REPO_URL="https://github.com/scarlosfreitas/devc-debian-claude.git"
+REPO_URL="https://github.com/scarlosfreitas/devcontainer-ai-cli.git"
 BRANCH="main"
 TARGET_DIR="."
 PROJECT_NAME=""
@@ -122,7 +122,7 @@ log "copiando arquivos para '$TARGET_DIR'..."
 for d in .claude .devcontainer prompts scripts; do
   [[ -d "$TMP_DIR/$d" ]] || die "item obrigatório ausente no template: $d/"
 done
-for f in .env.example .gitignore skills-lock.json; do
+for f in .env.example .secrets.example .gitignore skills-lock.json; do
   [[ -f "$TMP_DIR/$f" ]] || die "item obrigatório ausente no template: $f"
 done
 
@@ -130,12 +130,12 @@ for d in .claude .devcontainer prompts scripts; do
   mkdir -p "$TARGET_DIR/$d"
   cp -a "$TMP_DIR/$d/." "$TARGET_DIR/$d/"
 done
-for f in .env.example .gitignore skills-lock.json; do
+for f in .env.example .secrets.example .gitignore skills-lock.json; do
   cp -a "$TMP_DIR/$f" "$TARGET_DIR/$f"
 done
 
 # .claude/ é copiado exceto estes dois: o PRD.md é o do template (produto
-# devc-debian-claude), não faz sentido no projeto novo, e não é substituído
+# devcontainer-ia-cli), não faz sentido no projeto novo, e não é substituído
 # por nenhum esqueleto — o usuário escreve o seu (prompts/1-create-prd.md).
 # O settings.local.json do template desativaria skills no projeto novo.
 rm -f "$TARGET_DIR/.claude/PRD.md" "$TARGET_DIR/.claude/settings.local.json"
@@ -265,7 +265,7 @@ log "inicializando repositório git..."
 git init --quiet
 if [[ "$DO_COMMIT" == true ]]; then
   git add -A
-  git commit --quiet -m "chore: bootstrap a partir do template devc-debian-claude"
+  git commit --quiet -m "chore: bootstrap a partir do template devcontainer-ia-cli"
 fi
 
 # --- resumo -----------------------------------------------------------------
@@ -275,8 +275,10 @@ log "projeto '$PROJECT_NAME' criado em '$TARGET_DIR'."
 echo "  container:      $CONTAINER_SLUG"
 echo "  PROJECT_FOLDER: $PROJECT_FOLDER (igual ao workspaceFolder)"
 echo "Próximos passos:"
-echo "  1. Copie .env.example para .env e preencha suas credenciais git."
-echo "  2. Abra a pasta no VS Code."
-echo "  3. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
-echo "  4. Faça login no Claude Code (chat e terminal)."
-echo "  5. Escreva .claude/PRD.md (ver prompts/1-create-prd.md)."
+echo "  1. Copie .env.example para .env (GIT_USERNAME/GIT_EMAIL/GIT_NAME) e"
+echo "     .secrets.example para .secrets (GIT_TOKKEN)."
+echo "  2. Rode scripts/build-image.sh (ou publique a imagem em um registry)."
+echo "  3. Abra a pasta no VS Code."
+echo "  4. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
+echo "  5. Faça login nos CLIs de IA que for usar (claude, codex, gemini, agy)."
+echo "  6. Escreva .claude/PRD.md (ver prompts/1-create-prd.md)."

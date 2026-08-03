@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-  install.ps1 — bootstrap do devc-debian-claude (Windows/PowerShell).
+  install.ps1 — bootstrap do devcontainer-ia-cli (Windows/PowerShell).
 
 .DESCRIPTION
   Baixa o kit deste repositório, remove o .git do template, pergunta os dados
@@ -13,7 +13,7 @@
 
 .EXAMPLE
   # Downloader avulso, totalmente interativo:
-  irm https://raw.githubusercontent.com/scarlosfreitas/devc-debian-claude/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/scarlosfreitas/devcontainer-ai-cli/main/scripts/install.ps1 | iex
 
 .EXAMPLE
   # Não-interativo, via variáveis de ambiente (necessário ao usar "irm | iex",
@@ -33,7 +33,7 @@ param(
   [string]$Description = $env:INSTALL_DESCRIPTION,
   [string]$ProjectFolder = $env:INSTALL_PROJECT_FOLDER,
   [string]$Dir = $(if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "." }),
-  [string]$RepoUrl = $(if ($env:INSTALL_REPO_URL) { $env:INSTALL_REPO_URL } else { "https://github.com/scarlosfreitas/devc-debian-claude.git" }),
+  [string]$RepoUrl = $(if ($env:INSTALL_REPO_URL) { $env:INSTALL_REPO_URL } else { "https://github.com/scarlosfreitas/devcontainer-ai-cli.git" }),
   [string]$Branch = $(if ($env:INSTALL_BRANCH) { $env:INSTALL_BRANCH } else { "main" }),
   [switch]$Yes = [bool]$env:INSTALL_YES,
   [switch]$NoCommit = [bool]$env:INSTALL_NO_COMMIT
@@ -101,7 +101,7 @@ if ($existing) {
 
 # --- baixa o kit e remove o .git do template ------------------------------
 
-$TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("devc-debian-claude-" + [System.Guid]::NewGuid().ToString("N"))
+$TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("devcontainer-ia-cli-" + [System.Guid]::NewGuid().ToString("N"))
 
 try {
   Write-Step "baixando o kit ($RepoUrl, branch $Branch)..."
@@ -114,7 +114,7 @@ try {
   # estiver aqui (README.md, CLAUDE.md, .claude/PRD.md, .claude/settings.local.json,
   # .agents/skills/, ...) fica só no template.
   $dirItems = @('.claude', '.devcontainer', 'prompts', 'scripts')
-  $fileItems = @('.env.example', '.gitignore', 'skills-lock.json')
+  $fileItems = @('.env.example', '.secrets.example', '.gitignore', 'skills-lock.json')
 
   # valida tudo antes de copiar qualquer coisa, para não deixar o destino pela metade
   foreach ($d in $dirItems) {
@@ -134,7 +134,7 @@ try {
   }
 
   # .claude/ é copiado exceto estes dois: o PRD.md é o do template (produto
-  # devc-debian-claude), não faz sentido no projeto novo, e não é substituído
+  # devcontainer-ia-cli), não faz sentido no projeto novo, e não é substituído
   # por nenhum esqueleto — o usuário escreve o seu (prompts/1-create-prd.md).
   # O settings.local.json do template desativaria skills no projeto novo.
   Remove-Item -Force -ErrorAction SilentlyContinue `
@@ -242,7 +242,7 @@ git init --quiet
 if ($LASTEXITCODE -ne 0) { Fail "git init falhou." }
 if (-not $NoCommit) {
   git add -A
-  git commit --quiet -m "chore: bootstrap a partir do template devc-debian-claude"
+  git commit --quiet -m "chore: bootstrap a partir do template devcontainer-ia-cli"
 }
 
 # --- resumo ----------------------------------------------------------------------
@@ -252,8 +252,11 @@ Write-Step "projeto '$Name' criado em '$Dir'."
 Write-Host "  container:      $ContainerSlug"
 Write-Host "  PROJECT_FOLDER: $ProjectFolder (igual ao workspaceFolder)"
 Write-Host "Próximos passos:"
-Write-Host "  1. Copie .env.example para .env e preencha suas credenciais git."
-Write-Host "  2. Abra a pasta no VS Code."
-Write-Host "  3. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
-Write-Host "  4. Faça login no Claude Code (chat e terminal)."
-Write-Host "  5. Escreva .claude/PRD.md (ver prompts/1-create-prd.md)."
+Write-Host "  1. Copie .env.example para .env (GIT_USERNAME/GIT_EMAIL/GIT_NAME) e"
+Write-Host "     .secrets.example para .secrets (GIT_TOKKEN)."
+Write-Host "  2. Construa a imagem (scripts/build-image.sh via WSL/Git Bash, ou 'docker build')"
+Write-Host "     ou publique-a em um registry."
+Write-Host "  3. Abra a pasta no VS Code."
+Write-Host "  4. Ctrl+Shift+P -> Dev Containers: Reopen in Container."
+Write-Host "  5. Faça login nos CLIs de IA que for usar (claude, codex, gemini, agy)."
+Write-Host "  6. Escreva .claude/PRD.md (ver prompts/1-create-prd.md)."

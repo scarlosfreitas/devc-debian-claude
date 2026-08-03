@@ -86,8 +86,7 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 `.secrets.example`, `.gitignore`, `skills-lock.json`. Nada além disso — em especial, `.claude/PRD.md`
 **não** é regerado como esqueleto; o projeto nasce sem PRD. Ao mexer nos instaladores, verifique essa
 lista: ela é implementada como cópia item a item (nunca "copia tudo e apaga depois") e é validada por
-inteiro antes de a primeira cópia acontecer. **`install.sh`/`install.ps1` hoje não copiam
-`.secrets.example`** — pendência conhecida (§6).
+inteiro antes de a primeira cópia acontecer.
 
 ---
 
@@ -248,36 +247,38 @@ em uma versão anterior do escopo):
   Docker CLI (DooD), OpenSpec e `bubblewrap`, todos instalados globalmente antes do `USER app`.
 * **RF13** — o `docker-compose.yml` passou a referenciar a imagem por `image:` em vez de buildar
   (`build:` comentado); `scripts/build-image.sh` é agora o mecanismo primário de build.
+* **`install.sh`/`install.ps1` atualizados para o novo nome/escopo**: `REPO_URL` e as URLs do
+  cabeçalho passaram a apontar para `devcontainer-ai-cli` (nome do repositório no GitHub — note a
+  grafia diferente do nome do projeto, `devcontainer-ia-cli`); ambos os instaladores agora validam
+  e copiam `.secrets.example` junto com `.env.example` (RF6/RF9), e o resumo final orienta a
+  preencher `.env`/`.secrets` separadamente e a construir a imagem antes do "Reopen in Container".
+  `install.ps1` continua não executado neste container (sem PowerShell disponível).
 
 **Pendências conhecidas** — defeitos abertos; ao tocar nesses pontos, corrija na direção do PRD
 (detalhado no PRD §11):
 
-1. **`install.sh`/`install.ps1` não acompanharam a mudança de escopo**: `REPO_URL` e as URLs do
-   cabeçalho ainda citam `devc-debian-claude` (nome e repositório antigos); nenhum dos dois copia
-   `.secrets.example` nem conhece a separação `.env`/`.secrets` (RF9). `install.ps1` também nunca
-   foi executado neste container (sem PowerShell disponível).
-2. **Mount do socket Docker ausente**: o `Dockerfile` comenta que o cliente Docker fala com o
+1. **Mount do socket Docker ausente**: o `Dockerfile` comenta que o cliente Docker fala com o
    daemon do host "pelo `/var/run/docker.sock` montado (ver `devcontainer.json`)", mas esse mount
    não existe em `devcontainer.json` hoje — o cliente `docker`/`docker compose` instalado (RF7)
    não tem daemon acessível até isso ser corrigido.
-3. **`.devcontainer/devcontainer-lock.json` órfão**: travava a feature
+2. **`.devcontainer/devcontainer-lock.json` órfão**: travava a feature
    `ghcr.io/anthropics/devcontainer-features/claude-code`, que não é mais referenciada em
    `devcontainer.json` — Claude Code virou instalação via `npm` no `Dockerfile`. Decidir entre
    remover o arquivo ou reintroduzir o uso da feature antes de confiar nele.
-4. **`.claude/settings.json` não existe** neste repositório, embora documentação anterior citasse
+3. **`.claude/settings.json` não existe** neste repositório, embora documentação anterior citasse
    hooks de bell (`Stop`/`Notification`) nele — confirmar se foi removido de propósito ou se
    precisa ser recriado antes de assumir que os hooks ainda rodam.
-5. **Build da imagem não validado neste ambiente**: não há Docker disponível aqui, então nem
+4. **Build da imagem não validado neste ambiente**: não há Docker disponível aqui, então nem
    `scripts/build-image.sh` nem um `docker compose up` foram executados de fato contra o
    `Dockerfile` atual (com os quatro CLIs de IA). Vale rodar um build real antes de publicar a
    imagem, especialmente para o Antigravity CLI — seu instalador roda um passo interno opaco
    (`agy install`) cujo comportamento sob root não foi verificável.
-6. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
+5. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
    pressupõem Blazor Web App, .NET 10, Bootstrap, JSInterop e prerendering. Falta uma variante
    agnóstica em que o especialista de framework siga a stack do projeto. A camada 1 já é agnóstica.
-7. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
+6. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
    descrição do papel, embora o processo que ele executa não dependa de stack.
-8. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
+7. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
    escrito. Os demais prompts numerados estão completos.
 
 ---
