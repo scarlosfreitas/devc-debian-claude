@@ -1,7 +1,10 @@
 services:
   app:
     container_name: ${CONTAINER_NAME}
+    # Utiliza a imagem devcontainer local
     image: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
+    pull_policy: missing
+    # Utiliza a imagem devcontainer com adições, a linha de cima deve ser comentada
     # build:
     #   context: ..
     #   dockerfile: .devcontainer/Dockerfile
