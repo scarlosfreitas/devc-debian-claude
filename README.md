@@ -38,7 +38,7 @@ Kafka, Dagster, Proxmox, Azure, MCP, entre outros), instalados sob demanda — n
 ### 1. Criar um projeto novo a partir do template
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/scarlosfreitas/devcontainer-ia-cli/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/scarlosfreitas/devcontainer-ai-cli/main/scripts/install.sh | bash
 ```
 
 O instalador pergunta **nome** e **descrição** do projeto, baixa a estrutura de devcontainer,
