@@ -16,15 +16,18 @@ echo "postCreate: iniciando setup do container..."
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- Credenciais git + GH_TOKEN via token (regenerado a cada recriação do container) ----
-# $ROOT_DIR (com .env e .git/config) é bind mount do host e sobrevive a
-# rebuilds; /home/app é filesystem do container e é descartado a cada rebuild.
+# $ROOT_DIR (com .env, .secrets e .git/config) é bind mount do host e sobrevive
+# a rebuilds; /home/app é filesystem do container e é descartado a cada rebuild.
 # credential.helper=store já está configurado em $ROOT_DIR/.git/config (persiste),
 # mas o arquivo ~/.git-credentials com o token em si precisa ser recriado aqui,
 # assim como o export do GH_TOKEN (usado pela gh CLI) em ~/.bashrc.
-if [ -f "$ROOT_DIR/.env" ]; then
+# GIT_TOKKEN mora em .secrets (credencial); GIT_USERNAME em .env (config).
+if [ -f "$ROOT_DIR/.env" ] || [ -f "$ROOT_DIR/.secrets" ]; then
     set -a
     # shellcheck disable=SC1091
-    source "$ROOT_DIR/.env"
+    [ -f "$ROOT_DIR/.env" ] && source "$ROOT_DIR/.env"
+    # shellcheck disable=SC1091
+    [ -f "$ROOT_DIR/.secrets" ] && source "$ROOT_DIR/.secrets"
     set +a
     if [ -n "${GIT_USERNAME:-}" ] && [ -n "${GIT_TOKKEN:-}" ]; then
         echo "postCreate: configurando credenciais git via token..."
@@ -36,7 +39,7 @@ if [ -f "$ROOT_DIR/.env" ]; then
         printf 'https://%s:%s@github.com\n' "$enc_user" "$enc_token" > ~/.git-credentials
         chmod 600 ~/.git-credentials
     else
-        echo "postCreate: GIT_USERNAME/GIT_TOKKEN não definidos em .env, pulando credenciais git."
+        echo "postCreate: GIT_USERNAME (.env) / GIT_TOKKEN (.secrets) não definidos, pulando credenciais git."
     fi
 
     if [ -n "${GIT_TOKKEN:-}" ]; then
@@ -48,13 +51,23 @@ EOF
         if ! grep -qF '~/.gh_token_env' ~/.bashrc 2>/dev/null; then
             {
                 echo ''
-                echo '# GH_TOKEN para a gh CLI (gerado pelo postCreate.sh a partir do .env)'
+                echo '# GH_TOKEN para a gh CLI (gerado pelo postCreate.sh a partir do .secrets)'
                 echo '[ -f ~/.gh_token_env ] && source ~/.gh_token_env'
             } >> ~/.bashrc
         fi
     else
-        echo "postCreate: GIT_TOKKEN não definido em .env, pulando GH_TOKEN."
+        echo "postCreate: GIT_TOKKEN não definido em .secrets, pulando GH_TOKEN."
     fi
+fi
+
+# Alias para Antigravity CLI com --dangerously-skip-permissions
+if ! grep -qF "alias agy+=" ~/.bashrc 2>/dev/null; then
+    echo "postCreate: configurando alias 'agy+' no ~/.bashrc..."
+    {
+        echo ''
+        echo '# Alias Antigravity (sem checagem de permissões)'
+        echo "alias agy+='agy --dangerously-skip-permissions'"
+    } >> ~/.bashrc
 fi
 
 echo "postCreate: concluído."

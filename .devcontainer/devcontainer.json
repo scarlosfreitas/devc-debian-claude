@@ -6,12 +6,10 @@
   "service": "app",
   "workspaceFolder": "/code/pessoal/devc-debian-claude",
   "shutdownAction": "none",
-  "features": {
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
-  },
   "remoteUser": "app",
   "mounts": [
-    "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind" // config do claude
+    "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind", // config do claude
+    "source=${localEnv:HOME}/.gemini,target=/home/app/.gemini,type=bind" // config do gemini/antigravity
   ],
   "containerEnv": {    
     "CLAUDE_CONFIG_DIR": "/home/app/.claude", // isso garant que o .claude.json saia da Home par dentro do .claude
