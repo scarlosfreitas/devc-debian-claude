@@ -4,8 +4,8 @@ set -euo pipefail
 # install.sh — bootstrap do devcontainer-ai-cli (Linux/macOS)
 #
 # Baixa o kit deste repositório, remove o .git do template, pergunta os dados
-# do novo projeto (nome e descrição), reescreve os arquivos afetados e
-# inicializa um repositório git novo para o projeto.
+# do novo projeto (nome), reescreve os arquivos afetados e inicializa um
+# repositório git novo para o projeto.
 #
 # O nome do devcontainer/container NÃO é perguntado: ele é derivado do nome do
 # projeto (RF2 do PRD).
@@ -14,8 +14,7 @@ set -euo pipefail
 #   curl -fsSL https://raw.githubusercontent.com/scarlosfreitas/devcontainer-ai-cli/main/scripts/install.sh | bash
 #
 # Modo não-interativo:
-#   curl -fsSL .../scripts/install.sh | bash -s -- --name "Meu Projeto" \
-#     --description "Descrição do projeto" --yes
+#   curl -fsSL .../scripts/install.sh | bash -s -- --name "Meu Projeto" --yes
 #
 # Ver --help para todas as opções.
 
@@ -23,7 +22,6 @@ REPO_URL="https://github.com/scarlosfreitas/devcontainer-ai-cli.git"
 BRANCH="main"
 TARGET_DIR="."
 PROJECT_NAME=""
-DESCRIPTION=""
 PROJECT_FOLDER=""
 ASSUME_YES=false
 DO_COMMIT=true
@@ -35,7 +33,6 @@ Uso: install.sh [opções]
 Opções:
   --dir <path>            Diretório de destino do novo projeto (padrão: .)
   --name <texto>          Nome do projeto
-  --description <texto>   Descrição do projeto (vai para devcontainer.json)
   --project-folder <path> Caminho absoluto do projeto, usado como PROJECT_FOLDER
                            em .devcontainer/.env e como workspaceFolder em
                            .devcontainer/devcontainer.json (padrão: o diretório
@@ -50,7 +47,7 @@ Opções:
 O nome do devcontainer/container não é perguntado: é derivado do nome do
 projeto (espaços viram "-" e o texto vai para minúsculas).
 
-Sem os flags de dados (--name/--description/--project-folder), o script
+Sem os flags de dados (--name/--project-folder), o script
 pergunta interativamente. Em modo não interativo (sem terminal disponível) sem
 --yes, o script aborta em vez de adivinhar os valores.
 EOF
@@ -60,7 +57,6 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dir) TARGET_DIR="$2"; shift 2 ;;
     --name) PROJECT_NAME="$2"; shift 2 ;;
-    --description) DESCRIPTION="$2"; shift 2 ;;
     --project-folder) PROJECT_FOLDER="$2"; shift 2 ;;
     --repo-url) REPO_URL="$2"; shift 2 ;;
     --branch) BRANCH="$2"; shift 2 ;;
@@ -182,8 +178,6 @@ prompt_default() {
 DEFAULT_NAME="$(basename "$TARGET_DIR")"
 prompt_default PROJECT_NAME "Nome do projeto" "$DEFAULT_NAME"
 
-prompt_default DESCRIPTION "Descrição do projeto" "Ambiente de desenvolvimento padrão deste projeto."
-
 # RF3: o mesmo caminho absoluto no host e dentro do container. O padrão é a
 # pasta de instalação; o usuário pode informar outro valor, mas ele será usado
 # nos DOIS lugares (PROJECT_FOLDER e workspaceFolder), nunca em só um.
@@ -191,7 +185,6 @@ prompt_default PROJECT_FOLDER "Caminho do projeto no host e no container" "$TARG
 
 # remove quebras de linha acidentais nos valores coletados
 PROJECT_NAME="${PROJECT_NAME//$'\n'/ }"
-DESCRIPTION="${DESCRIPTION//$'\n'/ }"
 PROJECT_FOLDER="${PROJECT_FOLDER//$'\n'/ }"
 
 [[ "$PROJECT_FOLDER" = /* ]] || die "o caminho do projeto deve ser absoluto: '$PROJECT_FOLDER'."
@@ -205,23 +198,19 @@ CONTAINER_SLUG="$(slugify "$PROJECT_NAME")"
 
 log "atualizando .devcontainer/devcontainer.json..."
 # Reescreve por linha (em vez de casar o valor antigo) para não depender do
-# conteúdo que veio do template: tudo que vier depois de "name": / "description":
-# / "workspaceFolder": é substituído. O arquivo é JSONC (tem comentários), então
+# conteúdo que veio do template: tudo que vier depois de "name": /
+# "workspaceFolder": é substituído. O arquivo é JSONC (tem comentários), então
 # não passamos por um parser JSON — os comentários precisam sobreviver.
 #
 # Os valores chegam pelo ambiente (ENVIRON), e não por "awk -v": o -v reprocessa
 # sequências de escape, o que desfaria o escape de aspas/barras do esc_json.
 DC_NAME="$(esc_json "$PROJECT_NAME")" \
-DC_DESC="$(esc_json "$DESCRIPTION")" \
 DC_FOLDER="$(esc_json "$PROJECT_FOLDER")" \
 awk '
-  BEGIN { name = ENVIRON["DC_NAME"]; desc = ENVIRON["DC_DESC"]; folder = ENVIRON["DC_FOLDER"] }
-  # "description" é reemitido logo após "name"; descarta o que já existir.
-  /^[[:space:]]*"description"[[:space:]]*:/ { next }
+  BEGIN { name = ENVIRON["DC_NAME"]; folder = ENVIRON["DC_FOLDER"] }
   /^[[:space:]]*"name"[[:space:]]*:/ && !seen_name {
     seen_name = 1
     printf "  \"name\": \"%s\",\n", name
-    printf "  \"description\": \"%s\",\n", desc
     next
   }
   /^[[:space:]]*"workspaceFolder"[[:space:]]*:/ && !seen_folder {

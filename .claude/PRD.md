@@ -95,8 +95,8 @@ O produto não tem interface gráfica; a "navegação" é a sequência de comand
 1. O usuário cria/escolhe a pasta onde o projeto deve nascer e entra nela.
 2. Executa o instalador (`scripts/install.sh` ou `scripts/install.ps1`), de forma interativa ou
    com flags/variáveis de ambiente.
-3. O instalador pergunta: **nome do projeto** e **descrição**. O nome informado tem os espaços
-   substituídos por `-` e é convertido para minúsculas, e o resultado é usado também como nome do
+3. O instalador pergunta o **nome do projeto**. O nome informado tem os espaços substituídos por
+   `-` e é convertido para minúsculas, e o resultado é usado também como nome do
    devcontainer/container — não há pergunta separada para o nome do container.
 4. O instalador baixa o kit, remove o `.git` do template, copia **apenas** os itens da lista de
    instalação (RF6), reescreve `.devcontainer/devcontainer.json`, gera `.devcontainer/.env` a
@@ -157,9 +157,9 @@ repositório git novo inicializado na pasta de destino.
 
 ### RF2 — Coleta de dados do projeto
 
-O instalador **SHALL** coletar **nome do projeto** e **descrição**, por prompt interativo, por
-flags de linha de comando (Linux/macOS) ou por variáveis de ambiente (Windows). O nome do
-devcontainer/container **SHALL** ser derivado do nome do projeto, e não perguntado separadamente.
+O instalador **SHALL** coletar o **nome do projeto**, por prompt interativo, por flag de linha de
+comando (Linux/macOS) ou por variável de ambiente (Windows). O nome do devcontainer/container
+**SHALL** ser derivado do nome do projeto, e não perguntado separadamente.
 
 * **Cenário: normalização do nome**
   * **WHEN** o usuário informa `Meu Projeto Novo` como nome do projeto
@@ -176,8 +176,9 @@ devcontainer/container **SHALL** ser derivado do nome do projeto, e não pergunt
 * **Cenário: ausência de opção para o nome do container**
   * **WHEN** o instalador é executado, interativa ou não-interativamente
   * **THEN** não existe pergunta, flag (`--container`) nem variável (`INSTALL_CONTAINER`) para o
-    nome do container; as opções de dados são apenas `--name`/`INSTALL_NAME`,
-    `--description`/`INSTALL_DESCRIPTION` e `--project-folder`/`INSTALL_PROJECT_FOLDER`.
+    nome do container; as opções de dados são apenas `--name`/`INSTALL_NAME` e
+    `--project-folder`/`INSTALL_PROJECT_FOLDER`. Também não existe pergunta, flag
+    (`--description`) nem variável (`INSTALL_DESCRIPTION`) para a descrição do projeto.
 
 ### RF3 — Paridade de caminho entre host e container
 
@@ -215,18 +216,15 @@ O instalador **SHALL** copiar `.devcontainer/.env.example` para `.devcontainer/.
 
 ### RF5 — Personalização do `devcontainer.json`
 
-O instalador **SHALL** reescrever `name`, `description` e `workspaceFolder` em
-`.devcontainer/devcontainer.json` com os dados coletados, **substituindo tudo o que vier depois da
-chave** (`"name":`, `"description":`, `"workspaceFolder":`) em vez de casar o valor antigo,
-preservando o JSON válido e os comentários do arquivo (JSONC).
+O instalador **SHALL** reescrever `name` e `workspaceFolder` em `.devcontainer/devcontainer.json`
+com os dados coletados, **substituindo tudo o que vier depois da chave** (`"name":`,
+`"workspaceFolder":`) em vez de casar o valor antigo, preservando o JSON válido e os comentários do
+arquivo (JSONC). O instalador **SHALL NOT** coletar nem escrever uma chave `description`.
 
 * **Cenário: valor anterior desconhecido**
   * **WHEN** o `name` do template é qualquer texto
   * **THEN** a linha inteira é reescrita como `"name": "<nome informado>",`, sem depender de qual
     era o valor anterior.
-* **Cenário: `description` ausente**
-  * **WHEN** o `devcontainer.json` do template não tem a chave `description`
-  * **THEN** o instalador a acrescenta logo após `name`, com a descrição informada.
 * **Cenário: comentários**
   * **WHEN** a reescrita termina
   * **THEN** os comentários `//` do `devcontainer.json` continuam presentes e o arquivo segue
@@ -624,8 +622,8 @@ Não faz parte da primeira versão:
 * [ ] Um caminho de projeto relativo faz a instalação abortar.
 * [ ] Informar `Meu Projeto Novo` como nome resulta em `DOCKER_IMAGE_NAME=meu-projeto-novo` e
       `CONTAINER_NAME=meu-projeto-novo`, sem pergunta separada para o nome do container.
-* [ ] `name` e `description` em `devcontainer.json` refletem os dados informados, com JSON válido e
-      com os comentários do arquivo preservados.
+* [ ] `name` em `devcontainer.json` reflete os dados informados, com JSON válido e com os
+      comentários do arquivo preservados; a chave `description` não é coletada nem escrita.
 * [ ] O projeto gerado contém exatamente `.claude/`, `.devcontainer/`, `prompts/`, `scripts/`,
       `.env.example`, `.secrets.example`, `.gitignore` e `skills-lock.json` — e nada além disso.
 * [ ] O projeto gerado **não** contém `README.md`, `CLAUDE.md`, `.claude/settings.local.json`,

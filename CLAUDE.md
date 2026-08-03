@@ -132,9 +132,11 @@ também como nome do container. **Não existe pergunta, flag nem variável para 
 não reintroduza `--container`/`INSTALL_CONTAINER`.
 
 Reescrita do `devcontainer.json`: é feita **linha a linha**, substituindo tudo que vier depois de
-`"name":`, `"description":` e `"workspaceFolder":`, sem casar o valor antigo. O arquivo é **JSONC** —
-não passe por `ConvertFrom-Json`/`jq`, que apagam os comentários. Os valores entram pelo ambiente
-(`ENVIRON` no awk), nunca por `awk -v`, que reprocessaria os escapes.
+`"name":` e `"workspaceFolder":`, sem casar o valor antigo. O arquivo é **JSONC** — não passe por
+`ConvertFrom-Json`/`jq`, que apagam os comentários. Os valores entram pelo ambiente (`ENVIRON` no
+awk), nunca por `awk -v`, que reprocessaria os escapes. Não existe pergunta, flag nem variável para
+a descrição do projeto — o instalador não escreve `"description":` em `devcontainer.json`; não
+reintroduza `--description`/`INSTALL_DESCRIPTION`.
 
 **`Dockerfile-devcontainer`** — enxuto: `--no-install-recommends` e `rm -rf /var/lib/apt/lists/*` em cada camada.
 Os quatro CLIs de IA (Claude Code, Codex CLI, Gemini CLI via `npm install -g`; Antigravity CLI via
@@ -250,9 +252,9 @@ em uma versão anterior do escopo):
   nome do projeto.
 * **RF3** — os instaladores coletam o caminho do projeto (padrão: pasta de instalação) e gravam
   `PROJECT_FOLDER` **e** `workspaceFolder` com ele; caminho relativo aborta.
-* **RF5** — reescrita linha a linha de `name`/`description`/`workspaceFolder`, com `description`
-  inserida quando ausente, comentários JSONC preservados e erro se `name` ou `workspaceFolder`
-  não existirem.
+* **RF5** — reescrita linha a linha de `name`/`workspaceFolder`, comentários JSONC preservados e
+  erro se `name` ou `workspaceFolder` não existirem. A descrição do projeto não é mais coletada
+  nem escrita em `devcontainer.json`.
 * **RF6** — cópia da lista fechada item a item, validada antes de começar; symlinks de
   `.claude/skills/` descartados para não gerar links quebrados.
 * **RF7** — Dockerfile amplo hoje: além do ferramental original, inclui Codex CLI, Gemini CLI,

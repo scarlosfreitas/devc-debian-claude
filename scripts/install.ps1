@@ -5,8 +5,8 @@
 
 .DESCRIPTION
   Baixa o kit deste repositório, remove o .git do template, pergunta os dados
-  do novo projeto (nome e descrição), reescreve os arquivos afetados e
-  inicializa um repositório git novo para o projeto.
+  do novo projeto (nome), reescreve os arquivos afetados e inicializa um
+  repositório git novo para o projeto.
 
   O nome do devcontainer/container NÃO é perguntado: é derivado do nome do
   projeto (RF2 do PRD).
@@ -19,18 +19,16 @@
   # Não-interativo, via variáveis de ambiente (necessário ao usar "irm | iex",
   # que não aceita parâmetros de linha de comando):
   $env:INSTALL_NAME = "Meu Projeto"
-  $env:INSTALL_DESCRIPTION = "Descrição do meu projeto"
   $env:INSTALL_PROJECT_FOLDER = "/code/meu-projeto"
   $env:INSTALL_YES = "1"
   irm .../install.ps1 | iex
 
 .EXAMPLE
   # Baixado localmente, com parâmetros normais:
-  .\install.ps1 -Name "Meu Projeto" -Description "..." -Yes
+  .\install.ps1 -Name "Meu Projeto" -Yes
 #>
 param(
   [string]$Name = $env:INSTALL_NAME,
-  [string]$Description = $env:INSTALL_DESCRIPTION,
   [string]$ProjectFolder = $env:INSTALL_PROJECT_FOLDER,
   [string]$Dir = $(if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "." }),
   [string]$RepoUrl = $(if ($env:INSTALL_REPO_URL) { $env:INSTALL_REPO_URL } else { "https://github.com/scarlosfreitas/devcontainer-ai-cli.git" }),
@@ -160,8 +158,6 @@ Set-Location $Dir
 $DefaultName = Split-Path -Leaf $Dir
 $Name = Prompt-Default -Current $Name -Message "Nome do projeto" -Default $DefaultName
 
-$Description = Prompt-Default -Current $Description -Message "Descrição do projeto" -Default "Ambiente de desenvolvimento padrão deste projeto."
-
 # RF3: o mesmo caminho absoluto no host e dentro do container. O padrão é a
 # pasta de instalação; o usuário pode informar outro valor, mas ele será usado
 # nos DOIS lugares (PROJECT_FOLDER e workspaceFolder), nunca em só um.
@@ -181,24 +177,20 @@ if ([string]::IsNullOrWhiteSpace($ContainerSlug)) { Fail "não foi possível der
 Write-Step "atualizando .devcontainer/devcontainer.json..."
 # Reescrita por linha (em vez de ConvertFrom-Json/ConvertTo-Json): o arquivo é
 # JSONC, e o round-trip pelo parser apagaria os comentários e reordenaria as
-# chaves. Tudo que vier depois de "name": / "description": / "workspaceFolder":
-# é substituído, sem depender do valor que veio do template.
+# chaves. Tudo que vier depois de "name": / "workspaceFolder": é substituído,
+# sem depender do valor que veio do template.
 function Escape-Json([string]$Text) { return $Text.Replace('\', '\\').Replace('"', '\"') }
 
 $dcPath = Join-Path $Dir ".devcontainer/devcontainer.json"
 $nameJson = Escape-Json $Name
-$descJson = Escape-Json $Description
 $folderJson = Escape-Json $ProjectFolder
 
 $seenName = $false
 $seenFolder = $false
 $dcOut = foreach ($line in (Get-Content -Path $dcPath)) {
-  # "description" é reemitido logo após "name"; descarta o que já existir.
-  if ($line -match '^\s*"description"\s*:') { continue }
   if (-not $seenName -and $line -match '^\s*"name"\s*:') {
     $seenName = $true
     "  `"name`": `"$nameJson`","
-    "  `"description`": `"$descJson`","
     continue
   }
   if (-not $seenFolder -and $line -match '^\s*"workspaceFolder"\s*:') {
