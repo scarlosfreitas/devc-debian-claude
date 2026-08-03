@@ -1,8 +1,16 @@
-# Infra de DESENVOLVIMENTO. Espelha o Dockerfile multiestágio da raiz (imagem de
-# referência reutilizável em outros projetos, PRD RF13) — mudança em um exige a
-# mudança equivalente no outro (ver CLAUDE.md §5).
-# Imagem base derivada de Debian, enxuta e estável.
-FROM debian:bookworm-slim
+# Imagem de referência multiestágio (PRD RF13): mesmo ferramental de
+# .devcontainer/Dockerfile, mas desacoplada de qualquer projeto — sem
+# PROJECT_FOLDER, sem bind mount, sem premissa de workspace. Serve de base
+# (FROM), local ou publicada em registry, para o devcontainer de projetos
+# futuros. Mudança em um Dockerfile exige a mudança equivalente no outro
+# (ver CLAUDE.md §5).
+
+# ============================================================================
+# Estágio 1/2 — tools: tudo que roda como root (pacotes de sistema, CLIs via
+# apt/npm). Corresponde à parte de .devcontainer/Dockerfile anterior ao
+# "USER app".
+# ============================================================================
+FROM debian:bookworm-slim AS tools
 
 # --- Pacotes do sistema -------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -54,9 +62,8 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Docker CLI (DooD: cliente no container, daemon no host via socket) --------
-# Apenas o cliente e o plugin do Compose — o daemon NÃO roda aqui; o container
-# fala com o daemon do host pelo /var/run/docker.sock montado (ver
-# devcontainer.json). Por isso docker-ce/containerd ficam de fora.
+# Apenas o cliente e o plugin do Compose — o daemon NÃO roda aqui; cada projeto
+# que herdar desta imagem decide se monta /var/run/docker.sock do host.
 RUN curl -fsSL https://download.docker.com/linux/debian/gpg \
         | gpg --dearmor -o /usr/share/keyrings/docker.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" \
@@ -68,7 +75,7 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg \
 # --- uv (gerenciador de dependências/ambiente Python do projeto) --------------
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# --- Usuário não-root (UID/GID 1000, casa com o fallback do docker-compose) ---
+# --- Usuário não-root (UID/GID 1000) ------------------------------------------
 RUN groupadd --gid 1000 app \
     && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash app \
     && groupadd -f docker \
@@ -76,11 +83,11 @@ RUN groupadd --gid 1000 app \
     && echo "app ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/app \
     && chmod 0440 /etc/sudoers.d/app
 
-# Pré-cria os diretórios de config do Claude Code, Gemini e Codex com dono correto: quando o
-# devcontainer monta um volume nomeado vazio em /home/app/.claude, .gemini ou .codex pela
-# primeira vez, o Docker copia o conteúdo/dono deste diretório da imagem
-# para o volume. Sem isso, o ponto de montagem é criado como root e o
-# usuário app fica sem permissão de escrita.
+# Pré-cria os diretórios de config do Claude Code, Gemini e Codex com dono correto: quando um
+# projeto que herdar desta imagem montar um volume nomeado vazio em /home/app/.claude, .gemini
+# ou .codex pela primeira vez, o Docker copia o conteúdo/dono deste diretório da imagem para o
+# volume. Sem isso, o ponto de montagem é criado como root e o usuário app fica sem permissão
+# de escrita.
 RUN mkdir -p /home/app/.claude /home/app/.gemini /home/app/.codex && chown -R app:app /home/app/.claude /home/app/.gemini /home/app/.codex
 
 # --- ccusage (CLI de monitoramento de consumo de tokens Claude, via npm) ------
@@ -106,14 +113,21 @@ RUN npm install -g @anthropic-ai/claude-code
 # pré-criado acima para config/credenciais do usuário app.
 RUN npm install -g @openai/codex
 
+# ============================================================================
+# Estágio 2/2 — final: tudo que roda como usuário app (PATH + instalações que
+# gravam em $HOME). Corresponde à parte de .devcontainer/Dockerfile posterior
+# ao "USER app". É este o estágio que projetos futuros herdam via FROM.
+# ============================================================================
+FROM tools AS final
+
 # PATH do usuário app. Declarado ANTES das instalações abaixo porque tanto o
 # instalador do Bun quanto o "uv tool install" avisam/erram quando o diretório
 # de destino não está no PATH.
 ENV PATH="/home/app/.bun/bin:/home/app/.local/bin:${PATH}"
 
-# Volta para o usuário padrão não-root do container por segurança. Tudo daqui
+# Volta para o usuário padrão não-root da imagem por segurança. Tudo daqui
 # para baixo instala em $HOME — e $HOME precisa ser /home/app, não /root, senão
-# os binários ficam fora do PATH (e sem permissão) para o usuário do container.
+# os binários ficam fora do PATH (e sem permissão) para o usuário app.
 USER app
 
 # --- Bun (runtime/gerenciador JS) ----------------------------------------------

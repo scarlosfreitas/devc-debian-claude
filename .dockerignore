@@ -1,0 +1,11 @@
+.git
+.env
+.env.example
+.secrets
+.secrets.example
+.devcontainer/.env
+.vscode
+.worktrees
+docs
+README.md
+CLAUDE.md

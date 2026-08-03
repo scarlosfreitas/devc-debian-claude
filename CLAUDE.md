@@ -62,6 +62,7 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 | `scripts/install-skill.sh` | `[i]` | Catálogo de skills (`npx skills add ...`) — catálogo, não executável de uma vez |
 | `scripts/plugins.sh` | `[i]` | Catálogo de plugins/MCPs sob demanda |
 | `scripts/clean.sh` | `[i]` | Remove container e volumes deste devcontainer |
+| `scripts/build-image.sh` | `[i]` | Builda a imagem de referência (`Dockerfile` da raiz, RF13) usando `BASE_IMAGE_NAME`/`BASE_IMAGE_TAG` do `.env` da raiz; inerte em projetos gerados (o `Dockerfile` que ela constrói não é copiado) |
 | `prompts/` | `[i]` | `1-create-prd.md`, `2-create-claude.md`, `3-create-agents.md`, `4-create-readme.md`, `5-new-feature-script.md` (vazio), `6-final-review.md` — numerados na ordem de uso |
 | `skills-lock.json` | `[i]` | Lock (origem/caminho/hash) das skills instaladas |
 | `.claude/settings.json` | `[i]` | Hooks (bell em `Stop` e `Notification`) |
@@ -72,7 +73,9 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 | `.claude/settings.local.json` | `[g]` | `skillOverrides` — skills desativadas neste projeto |
 | `.claude/skills/` | `[t]` | Symlinks versionados para `../../.agents/skills/*`; descartados na instalação (senão ficariam quebrados) |
 | `.agents/skills/` | `[t]` | Skills materializadas; **não** vai para o projeto gerado |
-| `.env.example` → `.env` | `[i]`/`[g]` | `GIT_USERNAME`, `GIT_EMAIL`, `GIT_NAME`, `GIT_TOKKEN` (grafia com dois K é a real) |
+| `.env.example` → `.env` | `[i]`/`[g]` | `GIT_USERNAME`, `GIT_EMAIL`, `GIT_NAME`, `GIT_TOKKEN` (grafia com dois K é a real), `BASE_IMAGE_NAME`/`BASE_IMAGE_TAG` (imagem de referência, RF13) |
+| `Dockerfile` (raiz) | `[t]` | Imagem multiestágio (`tools` + `final`) que espelha `.devcontainer/Dockerfile`, sem premissas de projeto — imagem de referência para `FROM` em projetos futuros (PRD RF13) |
+| `.dockerignore` (raiz) | `[t]` | Contexto de build enxuto para o `Dockerfile` da raiz |
 
 **Lista fechada do RF6** — o projeto gerado recebe **apenas**: `.claude/` (exceto `settings.local.json`,
 `PRD.md` e os symlinks de `skills/`), `.devcontainer/`, `prompts/`, `scripts/`, `.env.example`,
@@ -92,6 +95,7 @@ bash scripts/install.sh --help          # bootstrap; ver flags
 bash scripts/clean.sh                   # remove container/volumes (preserva o volume "vscode")
 bash scripts/clean.sh -y                # sem confirmação
 bash .devcontainer/postCreate.sh        # idempotente; roda sozinho no create do container
+bash scripts/build-image.sh             # builda a imagem de referência (Dockerfile da raiz, RF13)
 ```
 
 `scripts/install-skill.sh` e `scripts/plugins.sh` são **catálogos para copiar-e-colar linha a linha**,
@@ -138,6 +142,24 @@ multiarquitetura está fora de escopo.
 `credential.helper` é cumulativo, e o valor vazio zera a lista injetada pela extensão Dev Containers
 antes de definir `store`. Junto com `dev.containers.copyGitConfig: false`, é o que faz `git push`
 funcionar no container. Não "limpe" isso. O arquivo usa comentários (JSONC) — preserve-os.
+
+**`Dockerfile` da raiz (RF13)** — imagem multiestágio (`tools` + `final`) que espelha o ferramental
+de `.devcontainer/Dockerfile` (RF7), mas **sem** nenhuma premissa de projeto: nada de
+`PROJECT_FOLDER`, `.devcontainer/.env` ou bind mount. Existe para servir de imagem-base a projetos
+futuros (`FROM` local ou via registry). **Toda ferramenta adicionada ou removida em
+`.devcontainer/Dockerfile` exige a mudança equivalente aqui** — mesma disciplina de espelhamento já
+aplicada a `install.sh`/`install.ps1` (§5). Os dois arquivos ainda duplicam os `RUN` de instalação
+(ver PRD §11: fazer `.devcontainer/Dockerfile` herdar desta imagem é evolução futura, não feita
+agora). O estágio `tools` concentra tudo que roda como root (pacotes apt, repositórios, CLIs via
+apt/npm); o estágio `final` troca para `USER app`, declara o `PATH` e instala o que grava em
+`$HOME` (Bun, `uv tool`, Antigravity) — mesma ordem `ENV PATH`/`USER` do RF7, pela mesma razão.
+
+`scripts/build-image.sh` builda essa imagem lendo `BASE_IMAGE_NAME`/`BASE_IMAGE_TAG` do `.env` da
+raiz (grep, mesmo padrão de `clean.sh` — não `source`), nunca de `.devcontainer/.env`: os dois
+arquivos `.env` têm campos de imagem com propósitos diferentes e não devem ser confundidos. Como
+`scripts/` é copiado por inteiro (RF6), esse script também vai para projetos gerados — lá fica
+inerte, pois o `Dockerfile` da raiz não é copiado; isso é aceitável pelo mesmo precedente de
+`install.sh`/`install.ps1` ficarem no projeto gerado sem função depois da instalação.
 
 **Segredos** — `.env` e `.devcontainer/.env` são ignorados pelo git; arquivos com token vão com
 `chmod 600`. Nunca versione valores reais nem os imprima em log. O instalador **não** preenche o
@@ -223,13 +245,22 @@ Verificado em 2026-07-28.
    agnóstica em que o especialista de framework siga a stack do projeto. A camada 1 já é agnóstica.
 5. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
    descrição do papel, embora o processo que ele executa não dependa de stack.
-6. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
+6. **`Dockerfile` da raiz (RF13) não foi construído**: mesma limitação do item 2 — não há daemon
+   Docker neste ambiente (`docker info` falha, DooD depende do host). Os dois estágios (`tools`,
+   `final`) foram escritos espelhando `.devcontainer/Dockerfile` linha a linha, mas sem validação
+   por `docker build`.
+7. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
    escrito. Os demais prompts numerados estão completos.
 
 ---
 
 ## 7. Limites de escopo
 
-Fora da primeira versão (PRD §9): Dockerfile/compose de produção na raiz, instalação automática de
+Fora da primeira versão (PRD §9): Docker Compose de produção na raiz, instalação automática de
 plugins/MCPs, suporte a `arm64`, testes automatizados dos instaladores. Não introduza esses itens
 sem que o PRD mude antes.
+
+O `Dockerfile` da raiz (imagem de referência multiestágio, RF13) **não** está mais fora de escopo —
+foi incorporado ao PRD junto com esta mudança. Não confunda com "infra de produção": ele é uma
+imagem-base de desenvolvimento, do mesmo gênero de `.devcontainer/Dockerfile`, não um artefato de
+deploy.
