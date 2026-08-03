@@ -12,15 +12,18 @@ Orientações para o Claude Code trabalhar neste repositório.
 
 ## 1. O que é este repositório
 
-`devc-debian-claude` é um **template (esqueleto) de projeto**, não uma aplicação. Ele entrega um
-Devcontainer Debian com Claude Code, ferramentas de desenvolvimento e um catálogo de skills/plugins,
-mais um **instalador de um comando** que materializa um projeto novo a partir dele — e a **trilha de
+`devcontainer-ia-cli` (antigo `devc-debian-claude`) é um **template (esqueleto) de projeto**, não
+uma aplicação. Ele entrega uma **imagem Docker e uma estrutura de projeto** para desenvolvimento
+com **CLIs de IA** — Claude Code (Anthropic), Codex CLI (OpenAI), Gemini CLI e Antigravity CLI/`agy`
+(Google) —, seus gerenciadores de pacote (`uv`, `npm`/Node.js, Bun) e ferramentas de apoio
+(edição de texto, rede, Docker-out-of-Docker, `gh`, OpenSpec, monitoramento de tokens), mais um
+**instalador de um comando** que materializa um projeto novo a partir dele — e a **trilha de
 revisão SDD** (§5.1) que se usa dentro do projeto gerado.
 
-Não há código de aplicação, não há build, não há suíte de testes automatizados
+Não há código de aplicação, não há build de software, não há suíte de testes automatizados
 (testes dos instaladores estão explicitamente fora de escopo — PRD §9).
-O "produto" são: os scripts de bootstrap, a imagem de desenvolvimento, a configuração do
-devcontainer e os prompts/subagentes de revisão.
+O "produto" são: a imagem de desenvolvimento (`.devcontainer/Dockerfile`), os scripts de bootstrap
+e build, a configuração do devcontainer e os prompts/subagentes de revisão.
 
 **Idioma:** todo conteúdo do repositório (comentários, mensagens de script, documentação) é em
 **português**. Mantenha assim.
@@ -32,7 +35,7 @@ devcontainer e os prompts/subagentes de revisão.
 `PROJECT_FOLDER` (em `.devcontainer/.env`) **=** `workspaceFolder` (em `.devcontainer/devcontainer.json`)
 **=** caminho absoluto da pasta do projeto no host.
 
-Essa é a restrição estrutural do produto (PRD §1, RF3): garante que o Claude Code enxergue o mesmo
+Essa é a restrição estrutural do produto (PRD §1, RF3): garante que os CLIs de IA enxerguem o mesmo
 caminho absoluto no host e dentro do container, preservando configuração, memória e sessões.
 Se os dois divergirem, **a instalação é inválida**. Nunca "simplifique" para `/workspace` ou
 `/workspaces/${localWorkspaceFolderBasename}`.
@@ -41,7 +44,8 @@ O instalador coleta **um** caminho (padrão: a pasta de instalação; ou `--proj
 `INSTALL_PROJECT_FOLDER`) e o grava nos dois arquivos de uma vez — nunca em só um. Caminho
 relativo é rejeitado.
 
-Neste repositório-template o valor atual é `/code/pessoal/devc-debian-claude`, em ambos os arquivos.
+Neste repositório-template o valor atual é `/code/pessoal/devcontainer-ia-cli`, em ambos os
+arquivos.
 
 ---
 
@@ -52,20 +56,19 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 
 | Caminho | | Papel |
 |---|---|---|
-| `.devcontainer/Dockerfile` | `[i]` | Imagem `debian:bookworm-slim` + Node LTS/npm, `uv`, Bun, `git`, `gh`, `sudo`, zip/unzip/xz, Chrome, `ccusage`, `claude-usage`, `openspec`; usuário `app` (UID/GID 1000) |
-| `.devcontainer/docker-compose.yml` | `[i]` | Serviço `app`; bind `..:${PROJECT_FOLDER}:cached`; `user: ${HOST_UID:-1000}:${HOST_GID:-1000}` |
-| `.devcontainer/devcontainer.json` | `[i]` | Feature `claude-code`, bind de `~/.claude`, `CLAUDE_CONFIG_DIR`, locale, override do `credential.helper` |
-| `.devcontainer/postCreate.sh` | `[i]` | Recria `~/.git-credentials` e `GH_TOKEN` a partir do `.env` da raiz |
-| `.devcontainer/devcontainer-lock.json` | `[i]` | Versão travada da feature `claude-code` |
+| `.devcontainer/Dockerfile` | `[i]` | Imagem `debian:bookworm-slim` + CLIs de IA (Claude Code, Codex CLI, Gemini CLI, Antigravity CLI), gerenciadores de pacote (`uv`, Node 24/npm, Bun), `git`/`gh`, cliente Docker (DooD), `ccusage`/`claude-usage`, OpenSpec, Chrome, `nano`, rede (`ping`/`iproute2`), `sudo`; usuário `app` (UID/GID 1000) — lista completa no PRD RF7 |
+| `.devcontainer/docker-compose.yml` | `[i]` | Serviço `app`; referencia a imagem por `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}` (o `build:` fica comentado, RF13); bind `..:${PROJECT_FOLDER}:cached`; `user: ${HOST_UID:-1000}:${HOST_GID:-1000}` |
+| `.devcontainer/devcontainer.json` | `[i]` | Bind de `~/.claude`, `~/.gemini`, `~/.codex`; `CLAUDE_CONFIG_DIR`, locale, override do `credential.helper` |
+| `.devcontainer/postCreate.sh` | `[i]` | Recria `~/.git-credentials` e `GH_TOKEN` a partir de `.env`/`.secrets` da raiz |
+| `.devcontainer/devcontainer-lock.json` | `[i]` | **Órfão** — travava a feature `claude-code`, não mais referenciada em `devcontainer.json` (ver §6) |
 | `.devcontainer/.env.example` → `.env` | `[i]`/`[g]` | `DOCKER_IMAGE_NAME`, `DOCKER_IMAGE_TAG`, `CONTAINER_NAME`, `PROJECT_FOLDER` |
 | `scripts/install.sh` / `install.ps1` | `[i]` | Bootstrap Linux/macOS e Windows |
 | `scripts/install-skill.sh` | `[i]` | Catálogo de skills (`npx skills add ...`) — catálogo, não executável de uma vez |
 | `scripts/plugins.sh` | `[i]` | Catálogo de plugins/MCPs sob demanda |
 | `scripts/clean.sh` | `[i]` | Remove container e volumes deste devcontainer |
-| `scripts/build-image.sh` | `[i]` | Builda `.devcontainer/Dockerfile` fora do compose (RF13), usando `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env` — as mesmas variáveis do `docker-compose.yml` |
+| `scripts/build-image.sh` | `[i]` | Builda `.devcontainer/Dockerfile` fora do compose (RF13), usando `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env` — mecanismo primário de build, já que o compose não builda mais sozinho |
 | `prompts/` | `[i]` | `1-create-prd.md`, `2-create-claude.md`, `3-create-agents.md`, `4-create-readme.md`, `5-new-feature-script.md` (vazio), `6-final-review.md` — numerados na ordem de uso |
 | `skills-lock.json` | `[i]` | Lock (origem/caminho/hash) das skills instaladas |
-| `.claude/settings.json` | `[i]` | Hooks (bell em `Stop` e `Notification`) |
 | `.claude/agents/` | `[i]` | Subagentes; hoje só `sdd-reviewer.md` (camada 1 do RF12) |
 | `.claude/skills/sdd-review/` | `[t]` | Pasta real (não symlink): processo de revisão de change OpenSpec |
 | `README.md` | `[t]` | Documentação pública do template; não vai para o projeto gerado |
@@ -73,14 +76,18 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 | `.claude/settings.local.json` | `[g]` | `skillOverrides` — skills desativadas neste projeto |
 | `.claude/skills/` | `[t]` | Symlinks versionados para `../../.agents/skills/*`; descartados na instalação (senão ficariam quebrados) |
 | `.agents/skills/` | `[t]` | Skills materializadas; **não** vai para o projeto gerado |
-| `.env.example` → `.env` | `[i]`/`[g]` | `GIT_USERNAME`, `GIT_EMAIL`, `GIT_NAME`, `GIT_TOKKEN` (grafia com dois K é a real) |
+| `.env.example` → `.env` | `[i]`/`[g]` | `GIT_USERNAME`, `GIT_EMAIL`, `GIT_NAME` — configuração git não-sensível |
+| `.secrets.example` → `.secrets` | `[i]`/`[g]` | `GIT_TOKKEN` — separado de `.env` por ser segredo (grafia com dois K é a real) |
+| `.vscode/settings.json` | `[t]` | Oculta `.worktrees/` da árvore/busca do editor |
+| `.worktrees/` | `[t]` | Destino de `git worktree add` para checkouts paralelos de branch; ignorado pelo git |
 
 **Lista fechada do RF6** — o projeto gerado recebe **apenas**: `.claude/` (exceto `settings.local.json`,
 `PRD.md` e os symlinks de `skills/`), `.devcontainer/`, `prompts/`, `scripts/`, `.env.example`,
-`.gitignore`, `skills-lock.json`. Nada além disso — em especial, `.claude/PRD.md` **não** é
-regerado como esqueleto; o projeto nasce sem PRD. Ao mexer nos instaladores, verifique essa lista:
-ela é implementada como cópia item a item (nunca "copia tudo e apaga depois") e é validada por
-inteiro antes de a primeira cópia acontecer.
+`.secrets.example`, `.gitignore`, `skills-lock.json`. Nada além disso — em especial, `.claude/PRD.md`
+**não** é regerado como esqueleto; o projeto nasce sem PRD. Ao mexer nos instaladores, verifique essa
+lista: ela é implementada como cópia item a item (nunca "copia tudo e apaga depois") e é validada por
+inteiro antes de a primeira cópia acontecer. **`install.sh`/`install.ps1` hoje não copiam
+`.secrets.example`** — pendência conhecida (§6).
 
 ---
 
@@ -93,7 +100,7 @@ bash scripts/install.sh --help          # bootstrap; ver flags
 bash scripts/clean.sh                   # remove container/volumes (preserva o volume "vscode")
 bash scripts/clean.sh -y                # sem confirmação
 bash .devcontainer/postCreate.sh        # idempotente; roda sozinho no create do container
-bash scripts/build-image.sh             # builda .devcontainer/Dockerfile fora do compose (RF13)
+bash scripts/build-image.sh             # builda .devcontainer/Dockerfile fora do compose (RF13) — necessário antes do primeiro "Reopen in Container"
 ```
 
 `scripts/install-skill.sh` e `scripts/plugins.sh` são **catálogos para copiar-e-colar linha a linha**,
@@ -104,7 +111,7 @@ Validação manual do ambiente (critérios de aceite do PRD §10):
 ```bash
 whoami            # app
 locale            # C.UTF-8
-for c in node npm uv bun git gh sudo ccusage claude-usage openspec; do command -v $c; done
+for c in node npm uv bun git gh sudo docker nano ping ccusage claude-usage openspec claude codex gemini agy; do command -v $c; done
 ```
 
 ---
@@ -130,21 +137,30 @@ não passe por `ConvertFrom-Json`/`jq`, que apagam os comentários. Os valores e
 (`ENVIRON` no awk), nunca por `awk -v`, que reprocessaria os escapes.
 
 **Dockerfile** — enxuto: `--no-install-recommends` e `rm -rf /var/lib/apt/lists/*` em cada camada.
-Todo o ferramental (incluindo Bun, `claude-usage` e Antigravity CLI) é instalado globalmente ainda
-como root, **antes** do `USER app` — cada instalador que por padrão gravaria em `$HOME` é
-redirecionado para um diretório global via env var/flag (`BUN_INSTALL=/usr/local` no Bun;
+Os quatro CLIs de IA (Claude Code, Codex CLI, Gemini CLI via `npm install -g`; Antigravity CLI via
+instalador oficial) e o ferramental de apoio (Bun, `claude-usage`, OpenSpec) são instalados
+globalmente ainda como root, **antes** do `USER app` — cada instalador que por padrão gravaria em
+`$HOME` é redirecionado para um diretório global via env var/flag (`BUN_INSTALL=/usr/local` no Bun;
 `UV_TOOL_DIR`/`UV_TOOL_BIN_DIR` apontando para `/usr/local/...` no `uv tool install` do
 `claude-usage`; `--dir /usr/local/bin` no instalador do Antigravity), em vez de rodar como usuário
-`app` depois de `USER app`. Não há mais nenhum `RUN` depois do `USER app` hoje — só `WORKDIR`.
-**Cuidado com `USER` e `$HOME` durante o build** continua valendo como princípio geral para
-ferramentas *futuras*: se um instalador novo não suportar redirecionar seu diretório de destino,
-ele volta a precisar do padrão antigo (rodar como usuário `app`, com `ENV PATH` declarado antes).
-`arch=amd64` é fixo (Chrome e `gh`); multiarquitetura está fora de escopo.
+`app` depois de `USER app`. Os diretórios `/home/app/.claude`, `/home/app/.gemini` e
+`/home/app/.codex` são pré-criados com dono `app:app` **antes** do `USER app`, para que os bind
+mounts do `devcontainer.json` (RF8) herdem a permissão certa na primeira subida. Não há mais
+nenhum `RUN` depois do `USER app` hoje — só `WORKDIR`. **Cuidado com `USER` e `$HOME` durante o
+build** continua valendo como princípio geral para ferramentas *futuras*: se um instalador novo não
+suportar redirecionar seu diretório de destino, ele volta a precisar do padrão antigo (rodar como
+usuário `app`, com `ENV PATH` declarado antes). `arch=amd64` é fixo (Chrome e `gh`); multiarquitetura
+está fora de escopo. O cliente Docker (`docker-ce-cli`/`docker-compose-plugin`) é só o cliente —
+o comentário do Dockerfile assume um mount de `/var/run/docker.sock` que **não existe** hoje em
+`devcontainer.json` (pendência, §6); não assuma DooD funcional sem checar isso primeiro.
 
 **`devcontainer.json`** — o bloco `GIT_CONFIG_*` com `VALUE_0` **vazio** é intencional:
 `credential.helper` é cumulativo, e o valor vazio zera a lista injetada pela extensão Dev Containers
 antes de definir `store`. Junto com `dev.containers.copyGitConfig: false`, é o que faz `git push`
-funcionar no container. Não "limpe" isso. O arquivo usa comentários (JSONC) — preserve-os.
+funcionar no container. Não "limpe" isso. O arquivo usa comentários (JSONC) — preserve-os. Os três
+mounts (`~/.claude`, `~/.gemini`, `~/.codex`) seguem o mesmo padrão: qualquer CLI de IA novo que
+entrar na imagem (RF7) precisa do mount equivalente aqui, senão perde config/credenciais a cada
+rebuild (RF8).
 
 **`scripts/build-image.sh` (RF13)** — builda `.devcontainer/Dockerfile` fora do `docker-compose`,
 lendo `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env` (grep, mesmo padrão de
@@ -157,9 +173,13 @@ binários", e replicar o ferramental num segundo arquivo só criaria dessincroni
 `scripts/` é copiado por inteiro (RF6) e `.devcontainer/` também, este script funciona normalmente
 em projetos gerados a partir do template.
 
-**Segredos** — `.env` e `.devcontainer/.env` são ignorados pelo git; arquivos com token vão com
-`chmod 600`. Nunca versione valores reais nem os imprima em log. O instalador **não** preenche o
-`.env` da raiz (é preenchimento manual do usuário — PRD §11).
+**Segredos** — `GIT_TOKKEN` mora em `.secrets` (não em `.env`): a separação existe para isolar o
+único valor realmente sensível do resto da configuração git (`GIT_USERNAME`/`GIT_EMAIL`/`GIT_NAME`,
+em `.env`). `.env`, `.secrets` e `.devcontainer/.env` são ignorados pelo git; arquivos com token vão
+com `chmod 600`. Nunca versione valores reais nem os imprima em log. O instalador **não** preenche
+`.env`/`.secrets` da raiz (é preenchimento manual do usuário — PRD §11). Ao editar `postCreate.sh`,
+lembre que `GIT_USERNAME` vem de `.env` e `GIT_TOKKEN` vem de `.secrets` — não junte os dois de
+volta num arquivo só.
 
 **`postCreate.sh`** — precisa ser idempotente: rodar duas vezes não pode duplicar linha no `~/.bashrc`
 (hoje via `grep -qF`), e `.env` ausente/incompleto deve pular o passo com mensagem e **sair com sucesso**.
@@ -209,9 +229,11 @@ outro**, como acontece com os instaladores.
 
 ## 6. Estado da conformidade com o PRD
 
-Verificado em 2026-07-28.
+Verificado em 2026-08-03, após a mudança de escopo para "imagem + estrutura de projeto para CLIs
+de IA" (repositório e projeto renomeados de `devc-debian-claude` para `devcontainer-ia-cli`).
 
-**Corrigido e testado** (`install.sh` executado ponta a ponta contra uma cópia local do template):
+**Corrigido e testado** (`install.sh` executado ponta a ponta contra uma cópia local do template,
+em uma versão anterior do escopo):
 
 * **RF2** — a pergunta/flag do nome do container foi removida dos dois instaladores; o slug vem do
   nome do projeto.
@@ -221,33 +243,41 @@ Verificado em 2026-07-28.
   inserida quando ausente, comentários JSONC preservados e erro se `name` ou `workspaceFolder`
   não existirem.
 * **RF6** — cópia da lista fechada item a item, validada antes de começar; symlinks de
-  `.claude/skills/` descartados para não gerar links quebrados. O `rm -f install.sh install.ps1`
-  (no-op) foi removido.
-* **RF7** — Dockerfile reordenado: `ENV PATH` antes do `USER app`, e Bun + `uv tool install`
-  depois dele, para que os binários caiam em `/home/app/...`.
+  `.claude/skills/` descartados para não gerar links quebrados.
+* **RF7** — Dockerfile amplo hoje: além do ferramental original, inclui Codex CLI, Gemini CLI,
+  Docker CLI (DooD), OpenSpec e `bubblewrap`, todos instalados globalmente antes do `USER app`.
+* **RF13** — o `docker-compose.yml` passou a referenciar a imagem por `image:` em vez de buildar
+  (`build:` comentado); `scripts/build-image.sh` é agora o mecanismo primário de build.
 
-**Pendências conhecidas** — defeitos abertos; ao tocar nesses pontos, corrija na direção do PRD:
+**Pendências conhecidas** — defeitos abertos; ao tocar nesses pontos, corrija na direção do PRD
+(detalhado no PRD §11):
 
-1. **`install.ps1` não foi executado**: não há PowerShell neste container. As mudanças espelham o
-   `install.sh` linha a linha, mas o caminho Windows segue sem verificação.
-2. **Dockerfile não foi reconstruído**: não há Docker disponível aqui. Bun, `claude-usage` e
-   Antigravity CLI foram movidos para instalação global (root, antes do `USER app`), ainda não
-   validado por build — o container em execução é o antigo, onde `bun` e `claude-usage` respondem
-   via `$HOME` do usuário `app`, não em `/usr/local/bin`. Vale um rebuild para confirmar,
-   especialmente o Antigravity: seu instalador roda um passo interno opaco (`agy install`) cujo
-   comportamento sob root não foi verificável — se `agy` reclamar de estado ausente ao rodar como
-   `app`, esse é o ajuste de acompanhamento a fazer. Mesma limitação vale para
-   `scripts/build-image.sh` (RF13): ele chega até chamar `docker build` corretamente (testado),
-   mas o build em si não foi validado por falta de daemon neste ambiente.
-3. **URLs de download desalinhadas**: os cabeçalhos de `install.sh`/`install.ps1` ainda citam
-   `.../main/install.sh` na raiz, enquanto os arquivos vivem em `scripts/`. O `README.md` já usa
-   o caminho correto (`.../main/scripts/install.sh`).
-4. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
+1. **`install.sh`/`install.ps1` não acompanharam a mudança de escopo**: `REPO_URL` e as URLs do
+   cabeçalho ainda citam `devc-debian-claude` (nome e repositório antigos); nenhum dos dois copia
+   `.secrets.example` nem conhece a separação `.env`/`.secrets` (RF9). `install.ps1` também nunca
+   foi executado neste container (sem PowerShell disponível).
+2. **Mount do socket Docker ausente**: o `Dockerfile` comenta que o cliente Docker fala com o
+   daemon do host "pelo `/var/run/docker.sock` montado (ver `devcontainer.json`)", mas esse mount
+   não existe em `devcontainer.json` hoje — o cliente `docker`/`docker compose` instalado (RF7)
+   não tem daemon acessível até isso ser corrigido.
+3. **`.devcontainer/devcontainer-lock.json` órfão**: travava a feature
+   `ghcr.io/anthropics/devcontainer-features/claude-code`, que não é mais referenciada em
+   `devcontainer.json` — Claude Code virou instalação via `npm` no `Dockerfile`. Decidir entre
+   remover o arquivo ou reintroduzir o uso da feature antes de confiar nele.
+4. **`.claude/settings.json` não existe** neste repositório, embora documentação anterior citasse
+   hooks de bell (`Stop`/`Notification`) nele — confirmar se foi removido de propósito ou se
+   precisa ser recriado antes de assumir que os hooks ainda rodam.
+5. **Build da imagem não validado neste ambiente**: não há Docker disponível aqui, então nem
+   `scripts/build-image.sh` nem um `docker compose up` foram executados de fato contra o
+   `Dockerfile` atual (com os quatro CLIs de IA). Vale rodar um build real antes de publicar a
+   imagem, especialmente para o Antigravity CLI — seu instalador roda um passo interno opaco
+   (`agy install`) cujo comportamento sob root não foi verificável.
+6. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
    pressupõem Blazor Web App, .NET 10, Bootstrap, JSInterop e prerendering. Falta uma variante
    agnóstica em que o especialista de framework siga a stack do projeto. A camada 1 já é agnóstica.
-5. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
+7. **`sdd-reviewer.md` cita o projeto de origem** (Copa2026, ASP.NET Core + Blazor Server) na
    descrição do papel, embora o processo que ele executa não dependa de stack.
-6. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
+8. **`prompts/5-new-feature-script.md` está vazio** — o roteiro de nova funcionalidade nunca foi
    escrito. Os demais prompts numerados estão completos.
 
 ---
@@ -255,8 +285,9 @@ Verificado em 2026-07-28.
 ## 7. Limites de escopo
 
 Fora da primeira versão (PRD §9): Dockerfile/compose de produção na raiz, instalação automática de
-plugins/MCPs, suporte a `arm64`, testes automatizados dos instaladores. Não introduza esses itens
-sem que o PRD mude antes.
+plugins/MCPs, suporte a `arm64`, testes automatizados dos instaladores, suporte a CLIs de IA além
+dos quatro já integrados (Claude Code, Codex CLI, Gemini CLI, Antigravity CLI). Não introduza esses
+itens sem que o PRD mude antes.
 
 `scripts/build-image.sh` (RF13) não viola esse limite: ele builda o `Dockerfile` **que já existe**
 em `.devcontainer/`, não introduz um Dockerfile novo na raiz.
