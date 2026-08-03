@@ -74,12 +74,12 @@ RUN groupadd --gid 1000 app \
     && echo "app ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/app \
     && chmod 0440 /etc/sudoers.d/app
 
-# Pré-cria os diretórios de config do Claude Code e Gemini com dono correto: quando o
-# devcontainer monta um volume nomeado vazio em /home/app/.claude ou .gemini pela
+# Pré-cria os diretórios de config do Claude Code, Gemini e Codex com dono correto: quando o
+# devcontainer monta um volume nomeado vazio em /home/app/.claude, .gemini ou .codex pela
 # primeira vez, o Docker copia o conteúdo/dono deste diretório da imagem
 # para o volume. Sem isso, o ponto de montagem é criado como root e o
 # usuário app fica sem permissão de escrita.
-RUN mkdir -p /home/app/.claude /home/app/.gemini && chown -R app:app /home/app/.claude /home/app/.gemini
+RUN mkdir -p /home/app/.claude /home/app/.gemini /home/app/.codex && chown -R app:app /home/app/.claude /home/app/.gemini /home/app/.codex
 
 # --- ccusage (CLI de monitoramento de consumo de tokens Claude, via npm) ------
 # Instalação global (/usr/lib/node_modules + /usr/bin), ainda como root.
@@ -98,6 +98,11 @@ RUN npm install -g @google/gemini-cli
 # Instalação global, ainda como root. Usa o diretório /home/app/.claude
 # pré-criado acima para config/credenciais do usuário app.
 RUN npm install -g @anthropic-ai/claude-code
+
+# --- Codex CLI (OpenAI) ---------------------------------------------------------
+# Instalação global, ainda como root. Usa o diretório /home/app/.codex
+# pré-criado acima para config/credenciais do usuário app.
+RUN npm install -g @openai/codex
 
 # PATH do usuário app. Declarado ANTES das instalações abaixo porque tanto o
 # instalador do Bun quanto o "uv tool install" avisam/erram quando o diretório

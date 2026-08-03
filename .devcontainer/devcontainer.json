@@ -9,7 +9,8 @@
   "remoteUser": "app",
   "mounts": [
     "source=${localEnv:HOME}/.claude,target=/home/app/.claude,type=bind", // config do claude
-    "source=${localEnv:HOME}/.gemini,target=/home/app/.gemini,type=bind" // config do gemini/antigravity
+    "source=${localEnv:HOME}/.gemini,target=/home/app/.gemini,type=bind", // config do gemini/antigravity
+    "source=${localEnv:HOME}/.codex,target=/home/app/.codex,type=bind" // config do codex
   ],
   "containerEnv": {    
     "CLAUDE_CONFIG_DIR": "/home/app/.claude", // isso garant que o .claude.json saia da Home par dentro do .claude
