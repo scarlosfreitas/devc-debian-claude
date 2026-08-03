@@ -2,9 +2,9 @@ services:
   app:
     container_name: ${CONTAINER_NAME}
     image: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-    build:
-      context: ..
-      dockerfile: .devcontainer/Dockerfile
+    # build:
+    #   context: ..
+    #   dockerfile: .devcontainer/Dockerfile
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     environment:
       - TZ=America/Sao_Paulo
