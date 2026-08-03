@@ -53,14 +53,8 @@ bash scripts/install.sh --help
 ### 2. Construir (ou publicar) a imagem
 
 O `docker-compose.yml` referencia a imagem por nome:tag em vez de buildar automaticamente. Antes do
-primeiro "Reopen in Container", gere a imagem localmente:
-
-```bash
-bash scripts/build-image.sh
-```
-
-Ou aponte `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` (em `.devcontainer/.env`) para uma imagem já
-publicada em um registry.
+primeiro "Reopen in Container", gere a imagem a partir do projeto que você acabou de criar (ver
+`--local` em "Comandos úteis"), ou aponte `.devcontainer/.env` para uma imagem já publicada.
 
 ### 3. Preencher as credenciais git
 
@@ -83,7 +77,8 @@ trabalhar — o caminho do projeto é idêntico no host e no container (`PROJECT
 ## Comandos úteis
 
 ```bash
-bash scripts/build-image.sh    # builda a imagem fora do docker-compose (RF13)
+bash scripts/build-image-devcontainer.sh          # builda a imagem baixando do GitHub (padrão)
+bash scripts/build-image-devcontainer.sh --local  # builda a partir dos arquivos locais
 bash scripts/clean.sh -y       # remove container/volumes deste projeto (preserva o volume "vscode")
 bash scripts/install-skill.sh  # catálogo de skills (copiar-e-colar linha a linha)
 bash scripts/plugins.sh        # catálogo de plugins/MCPs sob demanda
@@ -92,8 +87,8 @@ bash scripts/plugins.sh        # catálogo de plugins/MCPs sob demanda
 ## Estrutura
 
 ```text
-.devcontainer/   Dockerfile, docker-compose.yml, devcontainer.json, postCreate.sh
-scripts/         install.sh / install.ps1, build-image.sh, clean.sh, catálogos de skills/plugins
+.devcontainer/   Dockerfile-devcontainer, docker-compose.yml, devcontainer.json, postCreate.sh
+scripts/         install.sh / install.ps1, build-image-devcontainer.sh, clean.sh, catálogos de skills/plugins
 prompts/         roteiro numerado: PRD, CLAUDE.md, subagentes de revisão e README do projeto
 .claude/         skill + subagente de revisão SDD (proposal → apply), sem escrever arquivo algum
 ```

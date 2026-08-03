@@ -22,7 +22,7 @@ revisão SDD** (§5.1) que se usa dentro do projeto gerado.
 
 Não há código de aplicação, não há build de software, não há suíte de testes automatizados
 (testes dos instaladores estão explicitamente fora de escopo — PRD §9).
-O "produto" são: a imagem de desenvolvimento (`.devcontainer/Dockerfile`), os scripts de bootstrap
+O "produto" são: a imagem de desenvolvimento (`.devcontainer/Dockerfile-devcontainer`), os scripts de bootstrap
 e build, a configuração do devcontainer e os prompts/subagentes de revisão.
 
 **Idioma:** todo conteúdo do repositório (comentários, mensagens de script, documentação) é em
@@ -56,7 +56,7 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 
 | Caminho | | Papel |
 |---|---|---|
-| `.devcontainer/Dockerfile` | `[i]` | Imagem `debian:bookworm-slim` + CLIs de IA (Claude Code, Codex CLI, Gemini CLI, Antigravity CLI), gerenciadores de pacote (`uv`, Node 24/npm, Bun), `git`/`gh`, cliente Docker (DooD), `ccusage`/`claude-usage`, OpenSpec, Chrome, `nano`, rede (`ping`/`iproute2`), `sudo`; usuário `app` (UID/GID 1000) — lista completa no PRD RF7 |
+| `.devcontainer/Dockerfile-devcontainer` | `[i]` | Imagem `debian:bookworm-slim` + CLIs de IA (Claude Code, Codex CLI, Gemini CLI, Antigravity CLI), gerenciadores de pacote (`uv`, Node 24/npm, Bun), `git`/`gh`, cliente Docker (DooD), `ccusage`/`claude-usage`, OpenSpec, Chrome, `nano`, rede (`ping`/`iproute2`), `sudo`; usuário `app` (UID/GID 1000) — lista completa no PRD RF7 |
 | `.devcontainer/docker-compose.yml` | `[i]` | Serviço `app`; referencia a imagem por `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}` (o `build:` fica comentado, RF13); bind `..:${PROJECT_FOLDER}:cached`; `user: ${HOST_UID:-1000}:${HOST_GID:-1000}` |
 | `.devcontainer/devcontainer.json` | `[i]` | Bind de `~/.claude`, `~/.gemini`, `~/.codex`; `CLAUDE_CONFIG_DIR`, locale, override do `credential.helper` |
 | `.devcontainer/postCreate.sh` | `[i]` | Recria `~/.git-credentials` e `GH_TOKEN` a partir de `.env`/`.secrets` da raiz |
@@ -66,7 +66,7 @@ Marcação do PRD §8: `[i]` = copiado para o projeto gerado; `[t]` = só existe
 | `scripts/install-skill.sh` | `[i]` | Catálogo de skills (`npx skills add ...`) — catálogo, não executável de uma vez |
 | `scripts/plugins.sh` | `[i]` | Catálogo de plugins/MCPs sob demanda |
 | `scripts/clean.sh` | `[i]` | Remove container e volumes deste devcontainer |
-| `scripts/build-image.sh` | `[i]` | Builda `.devcontainer/Dockerfile` fora do compose (RF13), usando `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env` — mecanismo primário de build, já que o compose não builda mais sozinho |
+| `scripts/build-image-devcontainer.sh` | `[i]` | Builda `Dockerfile-devcontainer` fora do compose (RF13); padrão baixa `.env.example`/`Dockerfile-devcontainer` do GitHub, `--local` usa `.devcontainer/.env`/`Dockerfile-devcontainer` locais — mecanismo primário de build, já que o compose não builda mais sozinho |
 | `prompts/` | `[i]` | `1-create-prd.md`, `2-create-claude.md`, `3-create-agents.md`, `4-create-readme.md`, `5-new-feature-script.md` (vazio), `6-final-review.md` — numerados na ordem de uso |
 | `skills-lock.json` | `[i]` | Lock (origem/caminho/hash) das skills instaladas |
 | `.claude/agents/` | `[i]` | Subagentes; hoje só `sdd-reviewer.md` (camada 1 do RF12) |
@@ -99,7 +99,8 @@ bash scripts/install.sh --help          # bootstrap; ver flags
 bash scripts/clean.sh                   # remove container/volumes (preserva o volume "vscode")
 bash scripts/clean.sh -y                # sem confirmação
 bash .devcontainer/postCreate.sh        # idempotente; roda sozinho no create do container
-bash scripts/build-image.sh             # builda .devcontainer/Dockerfile fora do compose (RF13) — necessário antes do primeiro "Reopen in Container"
+bash scripts/build-image-devcontainer.sh          # builda a imagem baixando do GitHub (padrão); necessário antes do 1º "Reopen in Container"
+bash scripts/build-image-devcontainer.sh --local  # builda a partir do .devcontainer/.env e Dockerfile-devcontainer locais
 ```
 
 `scripts/install-skill.sh` e `scripts/plugins.sh` são **catálogos para copiar-e-colar linha a linha**,
@@ -135,7 +136,7 @@ Reescrita do `devcontainer.json`: é feita **linha a linha**, substituindo tudo 
 não passe por `ConvertFrom-Json`/`jq`, que apagam os comentários. Os valores entram pelo ambiente
 (`ENVIRON` no awk), nunca por `awk -v`, que reprocessaria os escapes.
 
-**Dockerfile** — enxuto: `--no-install-recommends` e `rm -rf /var/lib/apt/lists/*` em cada camada.
+**`Dockerfile-devcontainer`** — enxuto: `--no-install-recommends` e `rm -rf /var/lib/apt/lists/*` em cada camada.
 Os quatro CLIs de IA (Claude Code, Codex CLI, Gemini CLI via `npm install -g`; Antigravity CLI via
 instalador oficial) e o ferramental de apoio (Bun, `claude-usage`, OpenSpec) são instalados
 globalmente ainda como root, **antes** do `USER app` — cada instalador que por padrão gravaria em
@@ -150,7 +151,7 @@ build** continua valendo como princípio geral para ferramentas *futuras*: se um
 suportar redirecionar seu diretório de destino, ele volta a precisar do padrão antigo (rodar como
 usuário `app`, com `ENV PATH` declarado antes). `arch=amd64` é fixo (Chrome e `gh`); multiarquitetura
 está fora de escopo. O cliente Docker (`docker-ce-cli`/`docker-compose-plugin`) é só o cliente —
-o comentário do Dockerfile assume um mount de `/var/run/docker.sock` que **não existe** hoje em
+o comentário do `Dockerfile-devcontainer` assume um mount de `/var/run/docker.sock` que **não existe** hoje em
 `devcontainer.json` (pendência, §6); não assuma DooD funcional sem checar isso primeiro.
 
 **`devcontainer.json`** — o bloco `GIT_CONFIG_*` com `VALUE_0` **vazio** é intencional:
@@ -161,16 +162,27 @@ mounts (`~/.claude`, `~/.gemini`, `~/.codex`) seguem o mesmo padrão: qualquer C
 entrar na imagem (RF7) precisa do mount equivalente aqui, senão perde config/credenciais a cada
 rebuild (RF8).
 
-**`scripts/build-image.sh` (RF13)** — builda `.devcontainer/Dockerfile` fora do `docker-compose`,
-lendo `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env` (grep, mesmo padrão de
-`clean.sh` — não `source`) — as **mesmas** variáveis que o `docker-compose.yml` já usa para
-`image:`, não campos novos. Existe para permitir gerar/publicar essa imagem e reutilizá-la como
-base em projetos futuros (`FROM`) sem duplicar o Dockerfile. Não há um segundo Dockerfile na raiz:
-já se cogitou isso (imagem multiestágio separada) e foi descartado, porque quase tudo instalado em
-`.devcontainer/Dockerfile` é pacote `apt`/`npm` — não há alvo de build pesado para "copiar só os
-binários", e replicar o ferramental num segundo arquivo só criaria dessincronia para manter. Como
-`scripts/` é copiado por inteiro (RF6) e `.devcontainer/` também, este script funciona normalmente
-em projetos gerados a partir do template.
+**`scripts/build-image-devcontainer.sh` (RF13)** — builda `.devcontainer/Dockerfile-devcontainer`
+fora do `docker-compose`, em dois modos:
+
+* **Padrão (remoto)** — clona `REPO_URL`/`BRANCH` (default: `devcontainer-ai-cli`/`main`) num
+  diretório temporário e lê `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env.example`
+  ali dentro. Existe para funcionar como downloader avulso (`curl | bash`, igual ao `install.sh`),
+  sem exigir um clone local do projeto.
+* **`--local`** — usa `.devcontainer/.env` e `.devcontainer/Dockerfile-devcontainer` do próprio
+  projeto onde o script está (resolvido pelo caminho do script, mesmo padrão de `clean.sh`), para
+  testar mudanças no Dockerfile antes de publicá-las.
+
+Em ambos os modos, o valor lido é `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` — as **mesmas** variáveis
+que o `docker-compose.yml` já usa para `image:`, não campos novos. Qualquer opção não reconhecida
+(`--local`, `--repo-url`, `--branch`, `-h`) é repassada ao `docker build` (ex.: `--no-cache`).
+Existe para permitir gerar/publicar essa imagem e reutilizá-la como base em projetos futuros
+(`FROM`) sem duplicar o Dockerfile. Não há um segundo Dockerfile na raiz: já se cogitou isso (imagem
+multiestágio separada) e foi descartado, porque quase tudo instalado no `Dockerfile-devcontainer` é
+pacote `apt`/`npm` — não há alvo de build pesado para "copiar só os binários", e replicar o
+ferramental num segundo arquivo só criaria dessincronia para manter. Como `scripts/` é copiado por
+inteiro (RF6) e `.devcontainer/` também, este script funciona normalmente em projetos gerados a
+partir do template (no modo `--local`).
 
 **Segredos** — `GIT_TOKKEN` mora em `.secrets` (não em `.env`): a separação existe para isolar o
 único valor realmente sensível do resto da configuração git (`GIT_USERNAME`/`GIT_EMAIL`/`GIT_NAME`,
@@ -246,7 +258,10 @@ em uma versão anterior do escopo):
 * **RF7** — Dockerfile amplo hoje: além do ferramental original, inclui Codex CLI, Gemini CLI,
   Docker CLI (DooD), OpenSpec e `bubblewrap`, todos instalados globalmente antes do `USER app`.
 * **RF13** — o `docker-compose.yml` passou a referenciar a imagem por `image:` em vez de buildar
-  (`build:` comentado); `scripts/build-image.sh` é agora o mecanismo primário de build.
+  (`build:` comentado); `scripts/build-image-devcontainer.sh` (renomeado de `build-image.sh`, junto
+  com `.devcontainer/Dockerfile` → `Dockerfile-devcontainer`) é o mecanismo primário de build, com
+  dois modos: padrão baixa `.env.example`/`Dockerfile-devcontainer` do GitHub; `--local` usa os
+  arquivos do projeto onde o script está.
 * **`install.sh`/`install.ps1` atualizados para o novo nome/escopo**: `REPO_URL` e as URLs do
   cabeçalho passaram a apontar para `devcontainer-ai-cli` (nome do repositório no GitHub — note a
   grafia diferente do nome do projeto, `devcontainer-ia-cli`); ambos os instaladores agora validam
@@ -257,20 +272,21 @@ em uma versão anterior do escopo):
 **Pendências conhecidas** — defeitos abertos; ao tocar nesses pontos, corrija na direção do PRD
 (detalhado no PRD §11):
 
-1. **Mount do socket Docker ausente**: o `Dockerfile` comenta que o cliente Docker fala com o
+1. **Mount do socket Docker ausente**: o `Dockerfile-devcontainer` comenta que o cliente Docker fala com o
    daemon do host "pelo `/var/run/docker.sock` montado (ver `devcontainer.json`)", mas esse mount
    não existe em `devcontainer.json` hoje — o cliente `docker`/`docker compose` instalado (RF7)
    não tem daemon acessível até isso ser corrigido.
 2. **`.devcontainer/devcontainer-lock.json` órfão**: travava a feature
    `ghcr.io/anthropics/devcontainer-features/claude-code`, que não é mais referenciada em
-   `devcontainer.json` — Claude Code virou instalação via `npm` no `Dockerfile`. Decidir entre
+   `devcontainer.json` — Claude Code virou instalação via `npm` no `Dockerfile-devcontainer`. Decidir entre
    remover o arquivo ou reintroduzir o uso da feature antes de confiar nele.
 3. **`.claude/settings.json` não existe** neste repositório, embora documentação anterior citasse
    hooks de bell (`Stop`/`Notification`) nele — confirmar se foi removido de propósito ou se
    precisa ser recriado antes de assumir que os hooks ainda rodam.
-4. **Build da imagem não validado neste ambiente**: não há Docker disponível aqui, então nem
-   `scripts/build-image.sh` nem um `docker compose up` foram executados de fato contra o
-   `Dockerfile` atual (com os quatro CLIs de IA). Vale rodar um build real antes de publicar a
+4. **Build da imagem não validado neste ambiente**: o daemon Docker não está acessível aqui (só o
+   cliente), então nem `scripts/build-image-devcontainer.sh` (nenhum dos dois modos) nem um
+   `docker compose up` foram executados de fato contra o `Dockerfile-devcontainer` atual (com os
+   quatro CLIs de IA). Vale rodar um build real antes de publicar a
    imagem, especialmente para o Antigravity CLI — seu instalador roda um passo interno opaco
    (`agy install`) cujo comportamento sob root não foi verificável.
 5. **Camada 2 do RF12 presa à stack de origem**: `3-create-agents.md` e `6-final-review.md`
@@ -290,5 +306,6 @@ plugins/MCPs, suporte a `arm64`, testes automatizados dos instaladores, suporte 
 dos quatro já integrados (Claude Code, Codex CLI, Gemini CLI, Antigravity CLI). Não introduza esses
 itens sem que o PRD mude antes.
 
-`scripts/build-image.sh` (RF13) não viola esse limite: ele builda o `Dockerfile` **que já existe**
-em `.devcontainer/`, não introduz um Dockerfile novo na raiz.
+`scripts/build-image-devcontainer.sh` (RF13) não viola esse limite: ele builda o
+`Dockerfile-devcontainer` **que já existe** em `.devcontainer/`, não introduz um Dockerfile novo na
+raiz.

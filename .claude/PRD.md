@@ -7,7 +7,8 @@
 >
 > **Estado do documento:** revisado em 2026-08-03 para refletir a mudança de escopo do projeto
 > (de "template genérico com Claude Code" para "imagem e estrutura de projeto dedicadas a
-> desenvolvimento com CLIs de IA") e os pacotes efetivamente instalados no `Dockerfile` atual.
+> desenvolvimento com CLIs de IA") e os pacotes efetivamente instalados no `Dockerfile-devcontainer`
+> atual.
 > Artefatos que a documentação antiga citava mas que não existem (`.claude/plans/`, `docs/`,
 > `src/`, `test/`, `STATUS.md`) seguem em *Evoluções futuras* (§11).
 
@@ -30,8 +31,8 @@ agregado). A lista completa e o motivo de cada pacote estão no RF7.
 
 O projeto se materializa em duas frentes que se complementam:
 
-1. **A imagem** (`.devcontainer/Dockerfile`), construível isoladamente via
-   `scripts/build-image.sh` (RF13) e reutilizável como base (`FROM`) por outros projetos.
+1. **A imagem** (`.devcontainer/Dockerfile-devcontainer`), construível isoladamente via
+   `scripts/build-image-devcontainer.sh` (RF13) e reutilizável como base (`FROM`) por outros projetos.
 2. **Um instalador de um comando** (`scripts/install.sh`/`install.ps1`) que, executado na pasta
    onde um novo projeto deve nascer, baixa a estrutura de devcontainer/scripts/prompts deste
    template e deixa um repositório git novo pronto para abrir no devcontainer — sem que o usuário
@@ -106,8 +107,9 @@ O produto não tem interface gráfica; a "navegação" é a sequência de comand
    `.secrets` (`GIT_TOKKEN`, a partir de `.secrets.example`) na raiz do projeto — o token fica
    separado das demais credenciais para reduzir o que precisa de cuidado extra de acesso.
 6. O `docker-compose.yml` referencia a imagem pronta (`${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`,
-   RF13) em vez de buildar a partir do `Dockerfile` a cada subida — a imagem deve existir
-   localmente (via `scripts/build-image.sh`) ou estar publicada em um registry antes deste passo.
+   RF13) em vez de buildar a partir do `Dockerfile-devcontainer` a cada subida — a imagem deve
+   existir localmente (via `scripts/build-image-devcontainer.sh`, no modo padrão ou `--local`) ou
+   estar publicada em um registry antes deste passo.
 7. O usuário abre a pasta no VS Code e escolhe **Dev Containers: Reopen in Container**.
 8. O `postCreate.sh` recria, dentro do container, as credenciais git (`~/.git-credentials`) e o
    `GH_TOKEN` da `gh` CLI a partir do `.env`/`.secrets` da raiz.
@@ -265,11 +267,12 @@ O instalador **SHALL** copiar para o projeto gerado **apenas** os itens abaixo, 
   * **WHEN** a instalação termina
   * **THEN** `scripts/` está presente por inteiro, incluindo `install.sh` e `install.ps1`, por
     `scripts/` ser copiado como diretório completo.
-* **Cenário: `build-image.sh` no projeto gerado**
+* **Cenário: `build-image-devcontainer.sh` no projeto gerado**
   * **WHEN** a instalação termina
-  * **THEN** `scripts/build-image.sh` também está presente (mesma regra de `scripts/` completo) e
-    funciona normalmente ali, pois constrói `.devcontainer/Dockerfile` a partir de
-    `.devcontainer/.env` (RF13) — ambos copiados por inteiro junto com `.devcontainer/`.
+  * **THEN** `scripts/build-image-devcontainer.sh` também está presente (mesma regra de `scripts/`
+    completo) e seu modo `--local` funciona normalmente ali, pois constrói
+    `.devcontainer/Dockerfile-devcontainer` a partir de `.devcontainer/.env` (RF13) — ambos
+    copiados por inteiro junto com `.devcontainer/`.
 * **Cenário: validação antes da cópia**
   * **WHEN** falta algum item obrigatório da lista no template baixado
   * **THEN** o instalador aborta **antes** de copiar qualquer coisa, sem deixar o destino pela
@@ -459,30 +462,48 @@ acessibilidade.
 
 ### RF13 — Build isolado da imagem do devcontainer
 
-O repositório **SHALL** entregar `scripts/build-image.sh`, que constrói `.devcontainer/Dockerfile`
-fora do `docker-compose`, usando **as mesmas variáveis** que o `docker-compose.yml` já usa
-(`DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env`). Este é o mecanismo **primário**
-de build: o `docker-compose.yml` referencia a imagem pelo nome/tag (`image:`) e não builda a
-partir do `Dockerfile` por padrão — a seção `build:` existe apenas comentada, como referência —,
-de modo que gerar/atualizar a imagem é sempre um passo explícito, feito por este script (ou por
-`docker build`/`docker compose build` manual), nunca implícito em um "Reopen in Container".
+O repositório **SHALL** entregar `scripts/build-image-devcontainer.sh`, que constrói a imagem a
+partir de `.devcontainer/Dockerfile-devcontainer` fora do `docker-compose`, em dois modos:
 
-* **Cenário: build via `scripts/build-image.sh`**
-  * **WHEN** `scripts/build-image.sh` é executado
-  * **THEN** ele lê `DOCKER_IMAGE_NAME` e `DOCKER_IMAGE_TAG` de `.devcontainer/.env` e roda
-    `docker build -f .devcontainer/Dockerfile` com o mesmo contexto (raiz do projeto) que o
-    `docker-compose.yml` referenciaria, marcando a imagem como
-    `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`.
-* **Cenário: `.devcontainer/.env` ausente ou incompleto**
-  * **WHEN** `.devcontainer/.env` não existe, ou falta `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG`
-  * **THEN** `scripts/build-image.sh` aborta com mensagem informativa, sem tentar o build.
+* **Padrão (remoto)** — sem flags, baixa `.devcontainer/.env.example` e
+  `.devcontainer/Dockerfile-devcontainer` do repositório GitHub do `devcontainer-ia-cli` (branch e
+  URL configuráveis por `--branch`/`--repo-url`) e builda a partir deles. Não depende de um clone
+  local do projeto — funciona como downloader avulso (`curl | bash`), igual ao `scripts/install.sh`.
+* **`--local`** — usa `.devcontainer/.env` e `.devcontainer/Dockerfile-devcontainer` já existentes
+  no projeto local (resolvidos pelo caminho do próprio script, mesmo padrão do `clean.sh`), sem
+  tocar no GitHub — para testar mudanças no Dockerfile antes de publicá-las.
+
+Em ambos os modos, o nome/tag da imagem vem das **mesmas variáveis** que o `docker-compose.yml` já
+usa (`DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG`) — lidas de `.env.example` no modo padrão e de `.env` no
+modo `--local`. Este é o mecanismo **primário** de build: o `docker-compose.yml` referencia a
+imagem pelo nome/tag (`image:`) e não builda a partir do Dockerfile por padrão — a seção `build:`
+existe apenas comentada, como referência —, de modo que gerar/atualizar a imagem é sempre um passo
+explícito, nunca implícito em um "Reopen in Container".
+
+* **Cenário: build no modo padrão (remoto)**
+  * **WHEN** `scripts/build-image-devcontainer.sh` é executado sem `--local`
+  * **THEN** ele clona o repositório (`REPO_URL`/`BRANCH`) em um diretório temporário, lê
+    `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env.example` ali dentro e roda
+    `docker build -f .devcontainer/Dockerfile-devcontainer` com esse diretório como contexto,
+    marcando a imagem como `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`.
+* **Cenário: build no modo `--local`**
+  * **WHEN** `scripts/build-image-devcontainer.sh --local` é executado
+  * **THEN** ele lê `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env` do projeto local
+    e roda `docker build -f .devcontainer/Dockerfile-devcontainer` com a raiz do projeto como
+    contexto — o mesmo contexto que o `docker-compose.yml` referenciaria.
+* **Cenário: arquivo de origem ausente ou incompleto**
+  * **WHEN** falta `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` no `.env.example` baixado (modo padrão) ou
+    no `.env` local (modo `--local`), ou o `Dockerfile-devcontainer` correspondente não existe
+  * **THEN** `scripts/build-image-devcontainer.sh` aborta com mensagem informativa, sem tentar o build.
 * **Cenário: imagem ausente ao subir o devcontainer**
   * **WHEN** o usuário tenta "Reopen in Container" e `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`
     não existe localmente nem está publicada em um registry acessível
-  * **THEN** a subida falha ao puxar a imagem — rodar `scripts/build-image.sh` (ou publicar a
-    imagem) é pré-requisito, não uma etapa automática do `docker-compose.yml`.
+  * **THEN** a subida falha ao puxar a imagem — rodar `scripts/build-image-devcontainer.sh` (em
+    qualquer um dos dois modos, ou publicar a imagem) é pré-requisito, não uma etapa automática do
+    `docker-compose.yml`.
 * **Cenário: reuso em projeto futuro**
-  * **WHEN** a imagem gerada por `scripts/build-image.sh` é publicada (registry) ou mantida local
+  * **WHEN** a imagem gerada por `scripts/build-image-devcontainer.sh` é publicada (registry) ou
+    mantida local
   * **THEN** um projeto futuro pode referenciá-la em `FROM`, herdando o mesmo ferramental do RF7
     sem repetir os `RUN` de instalação — sem que isso exija um segundo Dockerfile no repositório.
 
@@ -500,7 +521,7 @@ de modo que gerar/atualizar a imagem é sempre um passo explícito, feito por es
   `/var/lib/apt/lists`); plugins e MCPs não entram na imagem.
 * **Reprodutibilidade:** a imagem é versionada por nome+tag (`DOCKER_IMAGE_NAME:DOCKER_IMAGE_TAG`
   em `.devcontainer/.env`) e construída de forma isolada e determinística por
-  `scripts/build-image.sh` (RF13); skills têm origem e hash travados em `skills-lock.json`.
+  `scripts/build-image-devcontainer.sh` (RF13); skills têm origem e hash travados em `skills-lock.json`.
 * **Localização:** mensagens dos scripts e documentação em português; locale `C.UTF-8` no container
   para acentuação correta.
 
@@ -517,8 +538,9 @@ Não há banco de dados nem carga de *seed*. As fontes de configuração do prod
   Consumido pelo `postCreate.sh`. Não versionado; mantido separado de `.env` por ser credencial.
 * **`.devcontainer/.env`** — parâmetros da imagem e do container (`DOCKER_IMAGE_NAME`,
   `DOCKER_IMAGE_TAG`, `CONTAINER_NAME`, `PROJECT_FOLDER`), gerado pelo instalador a partir de
-  `.devcontainer/.env.example`. Consumido pelo `docker-compose.yml` **e** por
-  `scripts/build-image.sh` (RF13). Não versionado.
+  `.devcontainer/.env.example`. Consumido pelo `docker-compose.yml` **e** pelo modo `--local` de
+  `scripts/build-image-devcontainer.sh` (RF13) — o modo padrão desse script lê
+  `.devcontainer/.env.example` do GitHub em vez do `.env` local. Não versionado.
 * **`skills-lock.json`** — origem, caminho e hash de cada skill instalada em `.agents/skills/`.
 * **`.claude/settings.local.json`** — overrides de ativação de skills por projeto (não versionado).
 
@@ -532,11 +554,11 @@ template; `[g]` = gerado pelo instalador ou pelo uso, não versionado.
 ```text
 devcontainer-ia-cli/
     .devcontainer/              [i] diretório completo
-        Dockerfile              < imagem Debian + CLIs de IA + uv/Node/Bun + apoio (RF7)
+        Dockerfile-devcontainer < imagem Debian + CLIs de IA + uv/Node/Bun + apoio (RF7)
         docker-compose.yml      < service "app"; referencia a imagem por nome:tag (build: comentado, RF13)
         devcontainer.json       < bind mount de ~/.claude, ~/.gemini, ~/.codex; locale UTF-8
         postCreate.sh           < credenciais git + GH_TOKEN a partir de .env/.secrets da raiz
-        devcontainer-lock.json  [t] órfão: travava a feature claude-code, hoje instalada via Dockerfile (ver §6 do CLAUDE.md)
+        devcontainer-lock.json  [t] órfão: travava a feature claude-code, hoje instalada via Dockerfile-devcontainer (ver §6 do CLAUDE.md)
         .env.example            < DOCKER_IMAGE_NAME / DOCKER_IMAGE_TAG / CONTAINER_NAME / PROJECT_FOLDER
         .env                    [g] gerado pelo instalador
     .claude/                    [i] exceto settings.local.json, PRD.md e skills/
@@ -553,7 +575,7 @@ devcontainer-ia-cli/
         install-skill.sh        < catálogo de skills instaláveis
         plugins.sh              < catálogo de plugins/MCPs sob demanda
         clean.sh                < remove container e volumes deste devcontainer
-        build-image.sh          < builda .devcontainer/Dockerfile fora do compose (RF13), via .devcontainer/.env
+        build-image-devcontainer.sh < builda Dockerfile-devcontainer fora do compose (RF13); padrão baixa do GitHub, --local usa .env/.devcontainer local
     prompts/                    [i] diretório completo — numerados na ordem de uso
         1-create-prd.md         < gera este PRD
         2-create-claude.md      < gera o CLAUDE.md
@@ -630,10 +652,13 @@ Não faz parte da primeira versão:
 * [ ] `prompts/6-final-review.md` produz um único consolidado do `review-manager` em
       `docs/reviews/review-AAAA-MM-DD.md`, com as sete seções obrigatórias e todas as recomendações
       classificadas em Alta, Média ou Baixa prioridade.
-* [ ] `bash scripts/build-image.sh` lê `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de
-      `.devcontainer/.env` e conclui o build com a tag `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`.
-* [ ] Sem `.devcontainer/.env`, ou com `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` ausentes,
-      `scripts/build-image.sh` aborta com mensagem informativa, sem chamar `docker build`.
+* [ ] `bash scripts/build-image-devcontainer.sh` (sem `--local`) clona o repositório, lê
+      `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env.example` e conclui o build com a
+      tag `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`.
+* [ ] `bash scripts/build-image-devcontainer.sh --local` lê `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG`
+      de `.devcontainer/.env` local e conclui o build com a mesma tag.
+* [ ] Sem `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` no arquivo correspondente a cada modo,
+      `scripts/build-image-devcontainer.sh` aborta com mensagem informativa, sem chamar `docker build`.
 
 ---
 
@@ -641,13 +666,14 @@ Não faz parte da primeira versão:
 
 * Estrutura documental de referência: `docs/domain/`, `docs/standards/`, `docs/guidelines/`, além
   de `src/`, `test/` e `STATUS.md`.
-* **Mount do socket Docker.** O `Dockerfile` documenta que o cliente Docker fala com o daemon do
-  host "pelo `/var/run/docker.sock` montado (ver `devcontainer.json`)", mas o `devcontainer.json`
-  atual não declara esse mount nem `runArgs`/grupo `docker` do host — hoje o cliente Docker
-  instalado não tem daemon acessível até esse mount ser adicionado.
+* **Mount do socket Docker.** O `Dockerfile-devcontainer` documenta que o cliente Docker fala com o
+  daemon do host "pelo `/var/run/docker.sock` montado (ver `devcontainer.json`)", mas o
+  `devcontainer.json` atual não declara esse mount nem `runArgs`/grupo `docker` do host — hoje o
+  cliente Docker instalado não tem daemon acessível até esse mount ser adicionado.
 * **`devcontainer-lock.json` órfão.** Travava a versão da feature `ghcr.io/.../claude-code`, que
   não é mais referenciada em `devcontainer.json` (Claude Code passou a ser instalado via `npm` no
-  `Dockerfile`, RF7). Decidir entre remover o arquivo ou reintroduzir o uso de features.
+  `Dockerfile-devcontainer`, RF7). Decidir entre remover o arquivo ou reintroduzir o uso de
+  features.
 * **`.claude/settings.json` ausente.** Documentação anterior do repositório citava hooks de bell
   em `Stop`/`Notification` neste arquivo; ele não existe mais em `.claude/` — verificar se os
   hooks foram intencionalmente removidos ou se o arquivo deve ser recriado.
@@ -665,5 +691,5 @@ Não faz parte da primeira versão:
 * Suporte multiarquitetura (`arm64`) na imagem de desenvolvimento.
 * Testes automatizados do bootstrap (`install.sh`/`install.ps1`) em CI.
 * Seleção interativa de skills e plugins durante a instalação.
-* Publicação da imagem construída por `scripts/build-image.sh` em um registry, hoje mantida só
+* Publicação da imagem construída por `scripts/build-image-devcontainer.sh` em um registry, hoje mantida só
   local — sem isso, o cenário "imagem publicada" do RF13 é apenas teórico.
