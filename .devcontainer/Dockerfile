@@ -106,26 +106,29 @@ RUN npm install -g @anthropic-ai/claude-code
 # pré-criado acima para config/credenciais do usuário app.
 RUN npm install -g @openai/codex
 
-# PATH do usuário app. Declarado ANTES das instalações abaixo porque tanto o
-# instalador do Bun quanto o "uv tool install" avisam/erram quando o diretório
-# de destino não está no PATH.
-ENV PATH="/home/app/.bun/bin:/home/app/.local/bin:${PATH}"
-
-# Volta para o usuário padrão não-root do container por segurança. Tudo daqui
-# para baixo instala em $HOME — e $HOME precisa ser /home/app, não /root, senão
-# os binários ficam fora do PATH (e sem permissão) para o usuário do container.
-USER app
-
-# --- Bun (runtime/gerenciador JS) ----------------------------------------------
-# Instala em $HOME/.bun => /home/app/.bun/bin.
-RUN curl -fsSL https://bun.com/install | bash
+# --- Bun (runtime/gerenciador JS) — instalação global -------------------------
+# BUN_INSTALL redireciona o instalador oficial (que por padrão usa $HOME/.bun)
+# para /usr/local, deixando bun/bunx em /usr/local/bin — mesmo padrão do
+# uv/uvx acima, acessível a qualquer usuário do container.
+RUN export BUN_INSTALL=/usr/local && curl -fsSL https://bun.com/install | bash
 
 # --- claude-usage (CLI de monitoramento de consumo de tokens, via uv tool) ----
-# Instala em $HOME/.local/bin => /home/app/.local/bin.
-RUN uv tool install git+https://github.com/phuryn/claude-usage
+# UV_TOOL_DIR/UV_TOOL_BIN_DIR redirecionam o "uv tool install" (que por padrão
+# usa $HOME/.local/share/uv/tools e $HOME/.local/bin) para diretórios globais.
+RUN UV_TOOL_DIR=/usr/local/share/uv/tools UV_TOOL_BIN_DIR=/usr/local/bin \
+    uv tool install git+https://github.com/phuryn/claude-usage
 
 # --- Google Antigravity (AGY CLI) ---------------------------------------------
-# Instala em $HOME/.local/bin => /home/app/.local/bin.
-RUN curl -fsSL https://antigravity.google/cli/install.sh | bash
+# --dir redireciona o download do binário (que por padrão usa $HOME/.local/bin)
+# para /usr/local/bin. O instalador também roda "agy install" internamente —
+# passo de auto-configuração do próprio binário compilado, não inspecionável
+# via shell script; validar após um build real que nada fica preso em /root
+# que o usuário app precisaria em /home/app.
+RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin
+
+# Volta para o usuário padrão não-root da imagem por segurança. Nenhuma
+# instalação acima depende de $HOME — todas os binários já caem em
+# /usr/local/bin, herdado no PATH da imagem base.
+USER app
 
 WORKDIR /workspace

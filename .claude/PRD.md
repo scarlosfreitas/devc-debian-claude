@@ -254,22 +254,25 @@ O instalador **SHALL** copiar para o projeto gerado **apenas** os itens abaixo, 
 
 A imagem de desenvolvimento **SHALL** fornecer Debian bookworm-slim com Node.js LTS + npm, `uv`,
 Bun, `git`, `gh`, `sudo`, utilitários de arquivo (`zip`/`unzip`/`xz-utils`), Google Chrome,
-`ccusage`, `claude-usage`, locale UTF-8 e o usuário não-root `app` (UID/GID 1000).
+`ccusage`, `claude-usage`, Antigravity CLI (`agy`), locale UTF-8 e o usuário não-root `app`
+(UID/GID 1000).
 
 * **Cenário: escrita no workspace**
   * **WHEN** o container sobe com `user: ${HOST_UID:-1000}:${HOST_GID:-1000}`
   * **THEN** o usuário `app` escreve no workspace montado sem erro de permissão.
 * **Cenário: ferramentas no PATH do usuário do container**
-  * **WHEN** o usuário `app` executa `node`, `npm`, `uv`, `bun`, `git`, `gh`, `sudo`, `ccusage` ou
-    `claude-usage`
-  * **THEN** todos respondem pelo PATH, sem "command not found".
-* **Cenário: instalações em `$HOME`**
-  * **WHEN** a imagem instala ferramentas que gravam em `$HOME` (Bun em `$HOME/.bun`,
-    `uv tool install` em `$HOME/.local/bin`)
-  * **THEN** essas instalações rodam **como o usuário `app`** (após o `USER app`), de modo que os
-    binários caiam em `/home/app/...` — que é o que o `ENV PATH` declara — e não em `/root/...`;
-    o `ENV PATH` é declarado **antes** dessas instalações para que elas não emitam aviso de
-    diretório fora do PATH.
+  * **WHEN** o usuário `app` executa `node`, `npm`, `uv`, `bun`, `git`, `gh`, `sudo`, `ccusage`,
+    `claude-usage` ou `agy` (Antigravity CLI)
+  * **THEN** todos respondem pelo PATH, sem "command not found" — todos instalados globalmente em
+    `/usr/local/bin` (ou `/usr/bin` via `apt`/`npm`) enquanto ainda root, nenhum depende de
+    `$HOME` do usuário `app`.
+* **Cenário: instaladores que por padrão gravam em `$HOME`**
+  * **WHEN** a imagem instala Bun, `claude-usage` (via `uv tool install`) ou o Antigravity CLI —
+    cujos instaladores oficiais, por padrão, gravam em `$HOME` do usuário que os executa
+  * **THEN** o build redireciona cada um para um diretório global antes de rodá-lo como root
+    (`BUN_INSTALL=/usr/local` para o Bun; `UV_TOOL_DIR`/`UV_TOOL_BIN_DIR` apontando para
+    `/usr/local/...` para o `claude-usage`; `--dir /usr/local/bin` para o Antigravity), em vez de
+    rodar cada instalador como o usuário `app` depois de `USER app`.
 
 ### RF8 — Configuração do Claude Code compartilhada com o host
 

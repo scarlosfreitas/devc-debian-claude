@@ -130,11 +130,16 @@ não passe por `ConvertFrom-Json`/`jq`, que apagam os comentários. Os valores e
 (`ENVIRON` no awk), nunca por `awk -v`, que reprocessaria os escapes.
 
 **Dockerfile** — enxuto: `--no-install-recommends` e `rm -rf /var/lib/apt/lists/*` em cada camada.
-Cuidado com **`USER` e `$HOME` durante o build**: o que grava em `~` (Bun, `uv tool install`) precisa
-rodar **depois do `USER app`**, senão vai para `/root/...` e fica fora do PATH; e o `ENV PATH` precisa
-vir **antes** dessas instalações, senão elas avisam que o diretório não está no PATH. Instalação
-global via npm (`ccusage`, `openspec`) fica antes do `USER app`. `arch=amd64` é fixo (Chrome e `gh`);
-multiarquitetura está fora de escopo.
+Todo o ferramental (incluindo Bun, `claude-usage` e Antigravity CLI) é instalado globalmente ainda
+como root, **antes** do `USER app` — cada instalador que por padrão gravaria em `$HOME` é
+redirecionado para um diretório global via env var/flag (`BUN_INSTALL=/usr/local` no Bun;
+`UV_TOOL_DIR`/`UV_TOOL_BIN_DIR` apontando para `/usr/local/...` no `uv tool install` do
+`claude-usage`; `--dir /usr/local/bin` no instalador do Antigravity), em vez de rodar como usuário
+`app` depois de `USER app`. Não há mais nenhum `RUN` depois do `USER app` hoje — só `WORKDIR`.
+**Cuidado com `USER` e `$HOME` durante o build** continua valendo como princípio geral para
+ferramentas *futuras*: se um instalador novo não suportar redirecionar seu diretório de destino,
+ele volta a precisar do padrão antigo (rodar como usuário `app`, com `ENV PATH` declarado antes).
+`arch=amd64` é fixo (Chrome e `gh`); multiarquitetura está fora de escopo.
 
 **`devcontainer.json`** — o bloco `GIT_CONFIG_*` com `VALUE_0` **vazio** é intencional:
 `credential.helper` é cumulativo, e o valor vazio zera a lista injetada pela extensão Dev Containers
@@ -225,11 +230,15 @@ Verificado em 2026-07-28.
 
 1. **`install.ps1` não foi executado**: não há PowerShell neste container. As mudanças espelham o
    `install.sh` linha a linha, mas o caminho Windows segue sem verificação.
-2. **Dockerfile não foi reconstruído**: não há Docker disponível aqui. A correção do RF7 é uma
-   mudança de ordem `USER`/`ENV`, ainda não validada por build. O container em execução ainda é o
-   antigo, onde `bun` e `claude-usage` **não** respondem no PATH — vale um rebuild para confirmar.
-   Mesma limitação vale para `scripts/build-image.sh` (RF13): ele chega até chamar `docker build`
-   corretamente (testado), mas o build em si não foi validado por falta de daemon neste ambiente.
+2. **Dockerfile não foi reconstruído**: não há Docker disponível aqui. Bun, `claude-usage` e
+   Antigravity CLI foram movidos para instalação global (root, antes do `USER app`), ainda não
+   validado por build — o container em execução é o antigo, onde `bun` e `claude-usage` respondem
+   via `$HOME` do usuário `app`, não em `/usr/local/bin`. Vale um rebuild para confirmar,
+   especialmente o Antigravity: seu instalador roda um passo interno opaco (`agy install`) cujo
+   comportamento sob root não foi verificável — se `agy` reclamar de estado ausente ao rodar como
+   `app`, esse é o ajuste de acompanhamento a fazer. Mesma limitação vale para
+   `scripts/build-image.sh` (RF13): ele chega até chamar `docker build` corretamente (testado),
+   mas o build em si não foi validado por falta de daemon neste ambiente.
 3. **URLs de download desalinhadas**: os cabeçalhos de `install.sh`/`install.ps1` ainda citam
    `.../main/install.sh` na raiz, enquanto os arquivos vivem em `scripts/`. O `README.md` já usa
    o caminho correto (`.../main/scripts/install.sh`).
