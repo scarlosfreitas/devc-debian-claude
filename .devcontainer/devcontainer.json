@@ -1,10 +1,10 @@
 
 {
   //Ambiente de desenvolvimento com Debian e Claude Code
-  "name": "Devcontainer IA CLI",
+  "name": "Devcontainer AI CLI",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/code/pessoal/devcontainer-ia-cli",
+  "workspaceFolder": "/code/pessoal/devcontainer-ai-cli",
   "shutdownAction": "none",
   "remoteUser": "app",
   "mounts": [
