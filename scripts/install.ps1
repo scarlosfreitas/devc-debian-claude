@@ -211,11 +211,11 @@ $envExamplePath = Join-Path $Dir ".devcontainer/.env.example"
 $envPath = Join-Path $Dir ".devcontainer/.env"
 # PROJECT_FOLDER precisa ser idêntico ao workspaceFolder acima (RF3): o
 # docker-compose monta o projeto nesse caminho dentro do container.
+# DOCKER_IMAGE_NAME e DOCKER_IMAGE_TAG não são tocados: permanecem os valores
+# de .env.example (a imagem é construída/publicada à parte, não por projeto).
 $seenEnvFolder = $false
 $envLines = Get-Content -Path $envExamplePath | ForEach-Object {
-  if ($_ -match '^DOCKER_IMAGE_NAME=') { "DOCKER_IMAGE_NAME=$ContainerSlug" }
-  elseif ($_ -match '^DOCKER_IMAGE_TAG=') { "DOCKER_IMAGE_TAG=0.1" }
-  elseif ($_ -match '^CONTAINER_NAME=') { "CONTAINER_NAME=$ContainerSlug" }
+  if ($_ -match '^CONTAINER_NAME=') { "CONTAINER_NAME=$ContainerSlug" }
   elseif ($_ -match '^PROJECT_FOLDER=') { $seenEnvFolder = $true; "PROJECT_FOLDER=$ProjectFolder" }
   else { $_ }
 }

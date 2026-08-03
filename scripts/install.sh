@@ -233,9 +233,9 @@ log "gerando .devcontainer/.env..."
 cp .devcontainer/.env.example .devcontainer/.env
 # PROJECT_FOLDER precisa ser idêntico ao workspaceFolder acima (RF3): o
 # docker-compose monta o projeto nesse caminho dentro do container.
+# DOCKER_IMAGE_NAME e DOCKER_IMAGE_TAG não são tocados: permanecem os valores
+# de .env.example (a imagem é construída/publicada à parte, não por projeto).
 sed -i.bak \
-  -e "s/^DOCKER_IMAGE_NAME=.*/DOCKER_IMAGE_NAME=$(esc_sed_repl "$CONTAINER_SLUG")/" \
-  -e "s/^DOCKER_IMAGE_TAG=.*/DOCKER_IMAGE_TAG=0.1/" \
   -e "s/^CONTAINER_NAME=.*/CONTAINER_NAME=$(esc_sed_repl "$CONTAINER_SLUG")/" \
   -e "s/^PROJECT_FOLDER=.*/PROJECT_FOLDER=$(esc_sed_repl "$PROJECT_FOLDER")/" \
   .devcontainer/.env

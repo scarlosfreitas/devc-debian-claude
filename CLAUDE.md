@@ -122,9 +122,12 @@ for c in node npm uv bun git gh sudo docker nano ping ccusage claude-usage opens
 **toda mudança em um exige a mudança equivalente no outro**. Ambos devem: abortar em pasta não vazia
 sem `--yes`/`-Yes`, funcionar sem TTY, clonar com `--depth 1`, apagar o `.git` do template,
 respeitar a lista fechada do RF6, gravar `PROJECT_FOLDER`/`workspaceFolder` com o `pwd` da instalação,
-derivar `DOCKER_IMAGE_NAME`/`CONTAINER_NAME` do nome do projeto normalizado e rodar `git init` (+
-commit, salvo `--no-commit`). Nenhum dos dois gera `.claude/PRD.md`: o `.claude/PRD.md` do template
-é removido junto com `settings.local.json`, e não é substituído por nada.
+derivar `CONTAINER_NAME` do nome do projeto normalizado e rodar `git init` (+ commit, salvo
+`--no-commit`). `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` **não** são reescritos pelo instalador: o
+projeto gerado herda os valores de `.env.example` como estão — a imagem é construída/publicada à
+parte (`scripts/build-image-devcontainer.sh`), não uma por projeto. Nenhum dos dois gera
+`.claude/PRD.md`: o `.claude/PRD.md` do template é removido junto com `settings.local.json`, e não é
+substituído por nada.
 
 Normalização do nome (RF2): espaços → `-`, tudo minúsculo (a `slugify` também remove acentos e
 outros caracteres inválidos em nome de container). `Meu Projeto Novo` → `meu-projeto-novo`, usado
