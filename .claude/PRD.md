@@ -237,10 +237,9 @@ O instalador **SHALL** copiar para o projeto gerado **apenas** os itens abaixo, 
     `scripts/` ser copiado como diretório completo.
 * **Cenário: `build-image.sh` no projeto gerado**
   * **WHEN** a instalação termina
-  * **THEN** `scripts/build-image.sh` também está presente (mesma regra de `scripts/` completo),
-    mas fica inerte: o `Dockerfile` da raiz que ele constrói (RF13) é `[t]`, não é copiado, e o
-    script aborta com mensagem informativa se executado ali — mesmo comportamento inofensivo já
-    aceito para `install.sh`/`install.ps1` no projeto gerado.
+  * **THEN** `scripts/build-image.sh` também está presente (mesma regra de `scripts/` completo) e
+    funciona normalmente ali, pois constrói `.devcontainer/Dockerfile` a partir de
+    `.devcontainer/.env` (RF13) — ambos copiados por inteiro junto com `.devcontainer/`.
 * **Cenário: validação antes da cópia**
   * **WHEN** falta algum item obrigatório da lista no template baixado
   * **THEN** o instalador aborta **antes** de copiar qualquer coisa, sem deixar o destino pela
@@ -388,39 +387,25 @@ acessibilidade.
     `review-blazor` substituído pelo equivalente da stack), pois foram escritos para ASP.NET Core
     + Blazor; a camada 1 é agnóstica de stack.
 
-### RF13 — Imagem de referência multiestágio na raiz
+### RF13 — Build isolado da imagem do devcontainer
 
-O repositório **SHALL** entregar, em `Dockerfile` na raiz, uma imagem multiestágio que espelha o
-ferramental de `.devcontainer/Dockerfile` (RF7), mas **desacoplada de qualquer projeto** — sem
-`PROJECT_FOLDER`, sem bind mount, sem premissas de workspace — para servir de imagem-base a
-projetos futuros (`FROM` a partir dela, local ou via registry).
+O repositório **SHALL** entregar `scripts/build-image.sh`, que constrói `.devcontainer/Dockerfile`
+fora do `docker-compose`, usando **as mesmas variáveis** que o `docker-compose.yml` já usa
+(`DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env`), para permitir gerar/publicar essa
+imagem e reutilizá-la como base em projetos futuros sem duplicar o Dockerfile.
 
-* **Cenário: dois estágios nomeados**
-  * **WHEN** o `Dockerfile` da raiz é construído
-  * **THEN** existem exatamente dois estágios: `tools` (pacotes de sistema e CLIs instalados como
-    root, o mesmo conjunto do RF7) e `final` (usuário `app` não-root, PATH e instalações que gravam
-    em `$HOME`), na mesma ordem `USER`/`ENV PATH` do RF7.
-* **Cenário: independência de projeto**
-  * **WHEN** a imagem é construída fora de qualquer instalação de projeto
-  * **THEN** o build não depende de `.devcontainer/.env`, `PROJECT_FOLDER` nem de qualquer arquivo
-    fora do próprio `Dockerfile` da raiz.
-* **Cenário: paridade de ferramental com o RF7**
-  * **WHEN** uma ferramenta é adicionada ou removida em `.devcontainer/Dockerfile`
-  * **THEN** a mudança equivalente é aplicada ao `Dockerfile` da raiz, para os dois não divergirem
-    silenciosamente (mesma disciplina de espelhamento do RF2/RF3 entre `install.sh`/`install.ps1`).
-* **Cenário: uso como base em outro projeto**
-  * **WHEN** um projeto futuro referencia esta imagem em `FROM` (local ou publicada em registry)
-  * **THEN** ele herda todo o ferramental do estágio `final` sem precisar repetir os `RUN` de
-    instalação.
 * **Cenário: build via `scripts/build-image.sh`**
   * **WHEN** `scripts/build-image.sh` é executado
-  * **THEN** ele lê `BASE_IMAGE_NAME` e `BASE_IMAGE_TAG` do `.env` da raiz (não confundir com
-    `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de `.devcontainer/.env`, que descrevem a imagem do
-    devcontainer, não esta imagem de referência) e roda `docker build --target final` marcando a
-    imagem como `${BASE_IMAGE_NAME}:${BASE_IMAGE_TAG}`.
-* **Cenário: `.env` ausente ou incompleto**
-  * **WHEN** o `.env` da raiz não existe, ou falta `BASE_IMAGE_NAME`/`BASE_IMAGE_TAG`
+  * **THEN** ele lê `DOCKER_IMAGE_NAME` e `DOCKER_IMAGE_TAG` de `.devcontainer/.env` e roda
+    `docker build -f .devcontainer/Dockerfile` com o mesmo contexto (raiz do projeto) que o
+    `docker-compose.yml` usa, marcando a imagem como `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`.
+* **Cenário: `.devcontainer/.env` ausente ou incompleto**
+  * **WHEN** `.devcontainer/.env` não existe, ou falta `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG`
   * **THEN** `scripts/build-image.sh` aborta com mensagem informativa, sem tentar o build.
+* **Cenário: reuso em projeto futuro**
+  * **WHEN** a imagem gerada por `scripts/build-image.sh` é publicada (registry) ou mantida local
+  * **THEN** um projeto futuro pode referenciá-la em `FROM`, herdando o mesmo ferramental do RF7
+    sem repetir os `RUN` de instalação — sem que isso exija um segundo Dockerfile no repositório.
 
 ---
 
@@ -444,12 +429,12 @@ projetos futuros (`FROM` a partir dela, local ou via registry).
 Não há banco de dados nem carga de *seed*. As fontes de configuração do produto são:
 
 * **`.env` (raiz)** — credenciais git do usuário (`GIT_USERNAME`, `GIT_EMAIL`, `GIT_NAME`,
-  `GIT_TOKKEN`) e parâmetros da imagem de referência (`BASE_IMAGE_NAME`, `BASE_IMAGE_TAG`), a
-  partir de `.env.example`. Consumido pelo `postCreate.sh` (credenciais) e por
-  `scripts/build-image.sh` (imagem). Não versionado; preenchido pelo usuário.
+  `GIT_TOKKEN`), a partir de `.env.example`. Consumido pelo `postCreate.sh`. Não versionado;
+  preenchido pelo usuário.
 * **`.devcontainer/.env`** — parâmetros da imagem e do container (`DOCKER_IMAGE_NAME`,
   `DOCKER_IMAGE_TAG`, `CONTAINER_NAME`, `PROJECT_FOLDER`), gerado pelo instalador a partir de
-  `.devcontainer/.env.example`. Não versionado.
+  `.devcontainer/.env.example`. Consumido pelo `docker-compose.yml` **e** por
+  `scripts/build-image.sh` (RF13). Não versionado.
 * **`skills-lock.json`** — origem, caminho e hash de cada skill instalada em `.agents/skills/`.
 * **`.devcontainer/devcontainer-lock.json`** — versão resolvida da feature `claude-code`.
 * **`.claude/settings.json` / `.claude/settings.local.json`** — hooks do Claude Code e overrides de
@@ -487,7 +472,7 @@ devc-debian-claude/
         install-skill.sh        < catálogo de skills instaláveis
         plugins.sh              < catálogo de plugins/MCPs sob demanda
         clean.sh                < remove container e volumes deste devcontainer
-        build-image.sh          < builda a imagem de referência (RF13) a partir do .env da raiz
+        build-image.sh          < builda .devcontainer/Dockerfile fora do compose (RF13), via .devcontainer/.env
     prompts/                    [i] diretório completo — numerados na ordem de uso
         1-create-prd.md         < gera este PRD
         2-create-claude.md      < gera o CLAUDE.md
@@ -499,8 +484,6 @@ devc-debian-claude/
     .env.example                [i] credenciais git (modelo)
     .gitignore                  [i]
     .env                        [g] credenciais git, preenchido pelo usuário
-    Dockerfile                  [t] imagem multiestágio (tools + final); base de referência p/ outros projetos (RF13)
-    .dockerignore               [t] contexto de build enxuto para o Dockerfile da raiz
     CLAUDE.md                   [t] guia de trabalho no repositório; não copiado
     README.md                   [t] documentação pública do template; não copiado
 ```
@@ -511,7 +494,7 @@ devc-debian-claude/
 
 Não faz parte da primeira versão:
 
-* Docker Compose de produção na raiz.
+* Infraestrutura de produção (Dockerfile/compose de produção na raiz).
 * Instalação automática de plugins e MCPs no container.
 * Suporte a arquiteturas diferentes de `amd64` (Chrome e `gh` são instalados com
   `arch=amd64` fixo).
@@ -558,12 +541,10 @@ Não faz parte da primeira versão:
 * [ ] `prompts/6-final-review.md` produz um único consolidado do `review-manager` em
       `docs/reviews/review-AAAA-MM-DD.md`, com as sete seções obrigatórias e todas as recomendações
       classificadas em Alta, Média ou Baixa prioridade.
-* [ ] `docker build -f Dockerfile --target tools .` e `docker build -f Dockerfile --target final .`
-      (ou build padrão, que resolve `final`) concluem sem exigir `.devcontainer/.env` nem qualquer
-      arquivo de um projeto instalado.
-* [ ] O estágio `final` do `Dockerfile` da raiz contém o mesmo ferramental listado no RF7
-      (`node`, `npm`, `uv`, `bun`, `git`, `gh`, `sudo`, `ccusage`, `claude-usage`), com `whoami`
-      retornando `app`.
+* [ ] `bash scripts/build-image.sh` lê `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` de
+      `.devcontainer/.env` e conclui o build com a tag `${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}`.
+* [ ] Sem `.devcontainer/.env`, ou com `DOCKER_IMAGE_NAME`/`DOCKER_IMAGE_TAG` ausentes,
+      `scripts/build-image.sh` aborta com mensagem informativa, sem chamar `docker build`.
 
 ---
 
@@ -585,8 +566,5 @@ Não faz parte da primeira versão:
 * Escrita do `prompts/5-new-feature-script.md`, hoje vazio.
 * Preenchimento automático do `.env` da raiz pelo instalador, hoje manual por conter segredo.
 * Suporte multiarquitetura (`arm64`) na imagem de desenvolvimento.
-* Fazer `.devcontainer/Dockerfile` herdar (`FROM`) da imagem de referência da raiz (RF13) em vez de
-  duplicar os `RUN` de instalação — hoje os dois Dockerfiles evoluem em paralelo e precisam ser
-  sincronizados manualmente a cada ferramenta adicionada ou removida.
 * Testes automatizados do bootstrap (`install.sh`/`install.ps1`) em CI.
 * Seleção interativa de skills e plugins durante a instalação.

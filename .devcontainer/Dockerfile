@@ -1,6 +1,6 @@
-# Infra de DESENVOLVIMENTO. Espelha o Dockerfile multiestágio da raiz (imagem de
-# referência reutilizável em outros projetos, PRD RF13) — mudança em um exige a
-# mudança equivalente no outro (ver CLAUDE.md §5).
+# Infra de DESENVOLVIMENTO. Também pode ser construída isoladamente via
+# scripts/build-image.sh (fora do docker-compose), para reutilizar esta
+# mesma imagem como base de referência em outros projetos.
 # Imagem base derivada de Debian, enxuta e estável.
 FROM debian:bookworm-slim
 
