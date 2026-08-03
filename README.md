@@ -1,4 +1,4 @@
-# devcontainer-ia-cli
+# devcontainer-ai-cli
 
 ![Debian](https://img.shields.io/badge/base-debian%20bookworm--slim-A81D33?logo=debian&logoColor=white)
 ![Dev Containers](https://img.shields.io/badge/Dev%20Containers-VS%20Code-007ACC?logo=visualstudiocode&logoColor=white)

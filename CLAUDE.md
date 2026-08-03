@@ -12,7 +12,7 @@ Orientações para o Claude Code trabalhar neste repositório.
 
 ## 1. O que é este repositório
 
-`devcontainer-ia-cli` (antigo `devc-debian-claude`) é um **template (esqueleto) de projeto**, não
+`devcontainer-ai-cli` (antigo `devc-debian-claude`) é um **template (esqueleto) de projeto**, não
 uma aplicação. Ele entrega uma **imagem Docker e uma estrutura de projeto** para desenvolvimento
 com **CLIs de IA** — Claude Code (Anthropic), Codex CLI (OpenAI), Gemini CLI e Antigravity CLI/`agy`
 (Google) —, seus gerenciadores de pacote (`uv`, `npm`/Node.js, Bun) e ferramentas de apoio
@@ -44,7 +44,7 @@ O instalador coleta **um** caminho (padrão: a pasta de instalação; ou `--proj
 `INSTALL_PROJECT_FOLDER`) e o grava nos dois arquivos de uma vez — nunca em só um. Caminho
 relativo é rejeitado.
 
-Neste repositório-template o valor atual é `/code/pessoal/devcontainer-ia-cli`, em ambos os
+Neste repositório-template o valor atual é `/code/pessoal/devcontainer-ai-cli`, em ambos os
 arquivos.
 
 ---
@@ -241,7 +241,7 @@ outro**, como acontece com os instaladores.
 ## 6. Estado da conformidade com o PRD
 
 Verificado em 2026-08-03, após a mudança de escopo para "imagem + estrutura de projeto para CLIs
-de IA" (repositório e projeto renomeados de `devc-debian-claude` para `devcontainer-ia-cli`).
+de IA" (repositório e projeto renomeados de `devc-debian-claude` para `devcontainer-ai-cli`).
 
 **Corrigido e testado** (`install.sh` executado ponta a ponta contra uma cópia local do template,
 em uma versão anterior do escopo):
@@ -263,8 +263,8 @@ em uma versão anterior do escopo):
   dois modos: padrão baixa `.env.example`/`Dockerfile-devcontainer` do GitHub; `--local` usa os
   arquivos do projeto onde o script está.
 * **`install.sh`/`install.ps1` atualizados para o novo nome/escopo**: `REPO_URL` e as URLs do
-  cabeçalho passaram a apontar para `devcontainer-ai-cli` (nome do repositório no GitHub — note a
-  grafia diferente do nome do projeto, `devcontainer-ia-cli`); ambos os instaladores agora validam
+  cabeçalho passaram a apontar para `devcontainer-ai-cli` (nome do repositório no GitHub, igual ao
+  nome do projeto); ambos os instaladores agora validam
   e copiam `.secrets.example` junto com `.env.example` (RF6/RF9), e o resumo final orienta a
   preencher `.env`/`.secrets` separadamente e a construir a imagem antes do "Reopen in Container".
   `install.ps1` continua não executado neste container (sem PowerShell disponível).

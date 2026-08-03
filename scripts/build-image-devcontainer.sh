@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # Padrão (remoto): baixa .devcontainer/.env.example e
 # .devcontainer/Dockerfile-devcontainer direto do repositório GitHub do
-# devcontainer-ia-cli (branch configurável) e builda a partir deles — não
+# devcontainer-ai-cli (branch configurável) e builda a partir deles — não
 # depende de estar dentro de um clone do projeto, então funciona como
 # downloader avulso (curl | bash), igual ao scripts/install.sh.
 #
@@ -34,7 +34,7 @@ Opções:
   -h, --help         Mostra esta ajuda
 
 Por padrão (sem --local), baixa .devcontainer/.env.example e
-.devcontainer/Dockerfile-devcontainer do repositório devcontainer-ia-cli no
+.devcontainer/Dockerfile-devcontainer do repositório devcontainer-ai-cli no
 GitHub e builda a imagem a partir deles, sem exigir um clone local do
 projeto. Qualquer opção não reconhecida acima é repassada ao "docker build"
 (ex.: --no-cache).

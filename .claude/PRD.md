@@ -1,4 +1,4 @@
-# PRD — devcontainer-ia-cli
+# PRD — devcontainer-ai-cli
 
 > Documento de produto (fonte de verdade) deste repositório. Define **o quê** e **o porquê**.
 > Escrito segundo práticas de Spec Driven Development: cada requisito funcional é declarado com
@@ -16,7 +16,7 @@
 
 ## 1. Visão Geral
 
-`devcontainer-ia-cli` (antigo `devc-debian-claude`) tem como objetivo entregar uma **imagem Docker
+`devcontainer-ai-cli` (antigo `devc-debian-claude`) tem como objetivo entregar uma **imagem Docker
 e uma estrutura de projeto** dedicadas a desenvolvimento com **ferramentas de IA em linha de
 comando**: Claude Code (Anthropic), Codex CLI (OpenAI), Gemini CLI e Antigravity CLI/`agy`
 (Google), rodando lado a lado no mesmo Devcontainer Debian.
@@ -466,7 +466,7 @@ O repositório **SHALL** entregar `scripts/build-image-devcontainer.sh`, que con
 partir de `.devcontainer/Dockerfile-devcontainer` fora do `docker-compose`, em dois modos:
 
 * **Padrão (remoto)** — sem flags, baixa `.devcontainer/.env.example` e
-  `.devcontainer/Dockerfile-devcontainer` do repositório GitHub do `devcontainer-ia-cli` (branch e
+  `.devcontainer/Dockerfile-devcontainer` do repositório GitHub do `devcontainer-ai-cli` (branch e
   URL configuráveis por `--branch`/`--repo-url`) e builda a partir deles. Não depende de um clone
   local do projeto — funciona como downloader avulso (`curl | bash`), igual ao `scripts/install.sh`.
 * **`--local`** — usa `.devcontainer/.env` e `.devcontainer/Dockerfile-devcontainer` já existentes
@@ -552,7 +552,7 @@ Marcação: `[i]` = copiado para o projeto gerado pelo instalador (RF6); `[t]` =
 template; `[g]` = gerado pelo instalador ou pelo uso, não versionado.
 
 ```text
-devcontainer-ia-cli/
+devcontainer-ai-cli/
     .devcontainer/              [i] diretório completo
         Dockerfile-devcontainer < imagem Debian + CLIs de IA + uv/Node/Bun + apoio (RF7)
         docker-compose.yml      < service "app"; referencia a imagem por nome:tag (build: comentado, RF13)

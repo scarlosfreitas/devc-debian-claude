@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# install.sh — bootstrap do devcontainer-ia-cli (Linux/macOS)
+# install.sh — bootstrap do devcontainer-ai-cli (Linux/macOS)
 #
 # Baixa o kit deste repositório, remove o .git do template, pergunta os dados
 # do novo projeto (nome e descrição), reescreve os arquivos afetados e
@@ -135,7 +135,7 @@ for f in .env.example .secrets.example .gitignore skills-lock.json; do
 done
 
 # .claude/ é copiado exceto estes dois: o PRD.md é o do template (produto
-# devcontainer-ia-cli), não faz sentido no projeto novo, e não é substituído
+# devcontainer-ai-cli), não faz sentido no projeto novo, e não é substituído
 # por nenhum esqueleto — o usuário escreve o seu (prompts/1-create-prd.md).
 # O settings.local.json do template desativaria skills no projeto novo.
 rm -f "$TARGET_DIR/.claude/PRD.md" "$TARGET_DIR/.claude/settings.local.json"
@@ -265,7 +265,7 @@ log "inicializando repositório git..."
 git init --quiet
 if [[ "$DO_COMMIT" == true ]]; then
   git add -A
-  git commit --quiet -m "chore: bootstrap a partir do template devcontainer-ia-cli"
+  git commit --quiet -m "chore: bootstrap a partir do template devcontainer-ai-cli"
 fi
 
 # --- resumo -----------------------------------------------------------------

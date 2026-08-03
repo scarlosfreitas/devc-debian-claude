@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-  install.ps1 — bootstrap do devcontainer-ia-cli (Windows/PowerShell).
+  install.ps1 — bootstrap do devcontainer-ai-cli (Windows/PowerShell).
 
 .DESCRIPTION
   Baixa o kit deste repositório, remove o .git do template, pergunta os dados
@@ -101,7 +101,7 @@ if ($existing) {
 
 # --- baixa o kit e remove o .git do template ------------------------------
 
-$TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("devcontainer-ia-cli-" + [System.Guid]::NewGuid().ToString("N"))
+$TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("devcontainer-ai-cli-" + [System.Guid]::NewGuid().ToString("N"))
 
 try {
   Write-Step "baixando o kit ($RepoUrl, branch $Branch)..."
@@ -134,7 +134,7 @@ try {
   }
 
   # .claude/ é copiado exceto estes dois: o PRD.md é o do template (produto
-  # devcontainer-ia-cli), não faz sentido no projeto novo, e não é substituído
+  # devcontainer-ai-cli), não faz sentido no projeto novo, e não é substituído
   # por nenhum esqueleto — o usuário escreve o seu (prompts/1-create-prd.md).
   # O settings.local.json do template desativaria skills no projeto novo.
   Remove-Item -Force -ErrorAction SilentlyContinue `
@@ -242,7 +242,7 @@ git init --quiet
 if ($LASTEXITCODE -ne 0) { Fail "git init falhou." }
 if (-not $NoCommit) {
   git add -A
-  git commit --quiet -m "chore: bootstrap a partir do template devcontainer-ia-cli"
+  git commit --quiet -m "chore: bootstrap a partir do template devcontainer-ai-cli"
 }
 
 # --- resumo ----------------------------------------------------------------------
