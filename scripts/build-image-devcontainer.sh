@@ -77,7 +77,7 @@ build_from() {
   docker build \
     -f "$dockerfile" \
     -t "$image_ref" \
-    "${EXTRA_ARGS[@]:-}" \
+    "${EXTRA_ARGS[@]}" \
     "$build_context"
 
   log "imagem construída: $image_ref"
